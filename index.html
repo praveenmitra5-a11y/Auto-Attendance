@@ -1,0 +1,1928 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#1a1a2e">
+<title>Praveen Kumar V — Attendance</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f0f2f5;min-height:100vh;color:#1a1a2e}
+#app{max-width:420px;margin:0 auto;padding:12px;padding-bottom:30px}
+.topbar{background:#1a1a2e;color:#fff;padding:14px 16px;border-radius:12px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between}
+.topbar-title{font-size:15px;font-weight:600;letter-spacing:0.2px}
+.topbar-sub{font-size:11px;opacity:0.6;margin-top:2px}
+.view-tabs{display:flex;gap:6px;margin-bottom:12px}
+.tab{flex:1;padding:8px;text-align:center;font-size:12px;font-weight:500;border-radius:8px;border:1.5px solid #dde3ec;cursor:pointer;background:#fff;color:#6b7280;transition:all 0.15s}
+.tab.active{background:#1a1a2e;color:#fff;border-color:#1a1a2e}
+.month-nav{display:flex;align-items:center;gap:6px;margin-bottom:10px}
+.nav-btn{background:#fff;border:1.5px solid #dde3ec;border-radius:8px;padding:7px 14px;font-size:14px;font-weight:600;cursor:pointer;color:#1a1a2e}
+.nav-btn:active{background:#f0f2f5}
+.month-sel,.year-sel{border:1.5px solid #dde3ec;border-radius:8px;padding:7px 8px;font-size:13px;font-weight:500;background:#fff;color:#1a1a2e;cursor:pointer;flex:1}
+.cal-wrap{background:#fff;border-radius:12px;border:1.5px solid #dde3ec;padding:10px;margin-bottom:10px}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}
+.day-header{text-align:center;font-size:10px;font-weight:800;color:#000;padding:4px 0;letter-spacing:0.3px}
+.day-header.sun{color:#ef4444}
+.day-cell{aspect-ratio:1;display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:7px;cursor:pointer;border:1.5px solid #cbd5e1;min-height:36px;transition:all 0.1s;position:relative}
+.day-cell.today{border:3px solid #000!important}
+.day-cell.today .day-num{font-weight:700!important;color:#1a1a2e!important}
+.day-cell.today.sunday .day-num{color:#ef4444!important}
+.day-cell.empty{cursor:default;border:1.5px solid transparent}
+.day-num{font-size:12px;font-weight:500;color:#1a1a2e}
+.day-label{font-size:7px;font-weight:600;margin-top:1px;letter-spacing:0.2px}
+/* attendance statuses */
+.day-cell.present{background:#22c55e}
+.day-cell.present .day-num{color:#fff}
+.day-cell.present .day-label{color:#fff}
+.day-cell.absent{background:#ef4444}
+.day-cell.absent .day-num{color:#fff}
+.day-cell.absent .day-label{color:#fff}
+.day-cell.halfday{background:#f59e0b}
+.day-cell.halfday .day-num{color:#fff}
+.day-cell.halfday .day-label{color:#fff}
+/* company holiday - light blue */
+.day-cell.co-holiday{background:#60a5fa}
+.day-cell.co-holiday .day-num{color:#fff;font-weight:700}
+.day-cell.holiday{background:#f97316} /* fallback; overridden by inline bg */
+.day-cell.holiday .day-num{color:#1a1a2e;font-weight:700}
+/* sunday - red text only, no border */
+.day-cell.sun-holiday .day-num{color:#ef4444;font-weight:800}
+.day-cell.sunday .day-num{color:#ef4444!important}
+.day-cell.present.sunday .day-num{color:#ef4444!important}
+.day-cell.absent.sunday .day-num{color:#ef4444!important}
+.day-cell.halfday.sunday .day-num{color:#ef4444!important}
+.day-cell.co-holiday.sunday .day-num{color:#ef4444!important}
+.day-cell.holiday.sunday .day-num{color:#ef4444!important}
+/* today — thick purple border, light yellow bg, normal day-num color (inherits from attendance or default) */
+.day-cell.today{border:3px solid #000!important}
+.day-cell:not(.empty):not(.sun-holiday):not(.future):not(.locked-cell):hover{opacity:0.85}
+.day-cell.future{cursor:default;opacity:0.4}
+.day-cell.future-unlocked{cursor:pointer;box-shadow:inset 0 0 0 1.5px #cbd5e1}
+.day-cell.future-unlocked.present,.day-cell.future-unlocked.absent,.day-cell.future-unlocked.halfday,.day-cell.future-unlocked.co-holiday{box-shadow:inset 0 0 0 2px rgba(255,255,255,0.7)}
+.day-cell.future-unlocked:not(.present):not(.absent):not(.halfday):not(.co-holiday) .day-num{color:#64748b}
+.day-cell.locked-cell{cursor:not-allowed}
+.day-cell.locked-cell.has-note-locked{cursor:pointer}
+.day-cell.past-unlocked{cursor:pointer;box-shadow:inset 0 0 0 1.5px #93c5fd}
+.day-cell.past-unlocked.present,.day-cell.past-unlocked.absent,.day-cell.past-unlocked.halfday,.day-cell.past-unlocked.co-holiday{box-shadow:inset 0 0 0 2px rgba(255,255,255,0.7)}
+.planned-tag{position:absolute;top:1px;right:2px;font-size:6px}
+
+.note-badge{position:absolute;top:1px;left:2px;font-size:7px}
+.shift-badge{position:absolute;bottom:1px;left:2px;font-size:6px;font-weight:800;opacity:0.9}
+.ot-badge{position:absolute;bottom:1px;right:2px;font-size:6px;font-weight:800;opacity:0.9}
+.summary{background:#fff;border-radius:12px;border:1.5px solid #dde3ec;padding:14px}
+.summary-title{font-size:13px;font-weight:600;color:#1a1a2e;margin-bottom:10px}
+.legend-row{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.legend-item{display:flex;align-items:center;gap:4px;font-size:10px;color:#6b7280}
+.legend-dot{width:10px;height:10px;border-radius:2px;flex-shrink:0}
+.stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
+.stat-box{background:#f8fafc;border-radius:8px;padding:10px 12px;border:1px solid #e8ecf0}
+.stat-lbl{font-size:10px;color:#9ca3af;font-weight:500;margin-bottom:4px;text-transform:uppercase;letter-spacing:0.3px}
+.stat-val{font-size:22px;font-weight:700;color:#1a1a2e}
+.stat-val.green{color:#16a34a}
+.stat-val.red{color:#dc2626}
+.stat-val.amber{color:#d97706}
+.stat-val.purple{color:#7c3aed}
+.pct-row{display:flex;align-items:center;gap:10px;padding-top:10px;border-top:1px solid #f0f2f5}
+.pct-label{font-size:13px;font-weight:600;color:#1a1a2e;white-space:nowrap}
+.pct-bar{height:8px;background:#f0f2f5;border-radius:4px;flex:1;overflow:hidden}
+.pct-fill{height:100%;border-radius:4px;transition:width 0.4s}
+.pct-val{font-size:14px;font-weight:700;min-width:56px;text-align:right}
+.more-btn{display:flex;align-items:center;justify-content:center;gap:8px;background:#1a1a2e;color:#fff;border:none;border-radius:8px;padding:10px 16px;font-size:13px;font-weight:600;cursor:pointer;width:100%;margin-top:12px}
+.more-btn:active{opacity:0.85}
+/* bottom sheet */
+.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:100;align-items:flex-end;justify-content:center}
+.overlay.show{display:flex}
+.sheet{background:#fff;border-radius:18px 18px 0 0;padding:20px;width:100%;max-width:420px}
+.sheet-handle{width:36px;height:4px;background:#dde3ec;border-radius:2px;margin:0 auto 16px}
+.sheet-title{font-size:16px;font-weight:700;color:#1a1a2e;margin-bottom:2px}
+.sheet-date{font-size:12px;color:#9ca3af;margin-bottom:16px}
+.sheet-section-lbl{font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:0.3px;margin-bottom:6px}
+.shift-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:14px}
+.shift-btn{padding:9px 4px;border-radius:9px;border:1.5px solid #dde3ec;background:#f8fafc;color:#1a1a2e;font-size:12px;font-weight:600;cursor:pointer;text-align:center}
+.shift-btn.selected{background:#1a1a2e;border-color:#1a1a2e;color:#fff}
+.ot-row{display:flex;align-items:center;gap:10px;margin-bottom:16px}
+.ot-input{flex:1;border:1.5px solid #dde3ec;border-radius:9px;padding:9px 10px;font-size:14px;font-weight:600;color:#1a1a2e}
+.note-input{width:100%;border:1.5px solid #dde3ec;border-radius:9px;padding:9px 10px;font-size:13px;font-family:inherit;color:#1a1a2e;resize:none;margin-bottom:16px}
+.opt-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px}
+.opt-btn{padding:12px 8px;border-radius:10px;border:1.5px solid #dde3ec;cursor:pointer;font-size:13px;font-weight:600;background:#f8fafc;color:#1a1a2e;display:flex;flex-direction:column;align-items:center;gap:5px;transition:all 0.1s}
+.opt-btn .icon{font-size:20px}
+.opt-btn.p{background:#dcfce7;border-color:#86efac;color:#15803d}
+.opt-btn.a{background:#fee2e2;border-color:#fca5a5;color:#b91c1c}
+.opt-btn.h{background:#fef3c7;border-color:#fcd34d;color:#92400e}
+.opt-btn.ch{background:#ede9fe;border-color:#c4b5fd;color:#6d28d9}
+.opt-btn.clr{background:#f1f5f9;border-color:#cbd5e1;color:#64748b}
+.opt-btn.hol{background:#ffedd5;border-color:#fdba74;color:#c2410c}
+.opt-btn:active{transform:scale(0.97)}
+.cancel-btn{width:100%;padding:11px;background:none;border:1.5px solid #dde3ec;border-radius:10px;cursor:pointer;font-size:14px;font-weight:500;color:#6b7280}
+
+/* yearly */
+.yearly-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.mini-month{background:#fff;border-radius:10px;padding:10px;border:1.5px solid #dde3ec}
+.mini-title{font-size:11px;font-weight:600;color:#1a1a2e;margin-bottom:6px;text-align:center}
+.mini-cal{display:grid;grid-template-columns:repeat(7,1fr);gap:1px}
+.mini-dow{display:grid;grid-template-columns:repeat(7,1fr);gap:1px;margin-bottom:2px}
+.mini-dow span{font-size:6.5px;font-weight:800;color:#000;text-align:center;letter-spacing:0}
+.mini-dow span.sun{color:#ef4444}
+.mini-cell{aspect-ratio:1;border-radius:2px;display:flex;align-items:center;justify-content:center;font-size:6px;font-weight:700;color:#000;border:0.5px solid #000}
+.mini-cell.present{background:#22c55e;color:#fff}
+.mini-cell.absent{background:#ef4444;color:#fff}
+.mini-cell.halfday{background:#f59e0b;color:#fff}
+.mini-cell.co-holiday{background:#60a5fa;color:#000}
+.mini-cell.holiday{background:#f97316;color:#fff}
+.mini-cell.sun-holiday{background:#fff;border:1.5px solid #ef4444!important;color:#ef4444!important;font-weight:700}
+.mini-cell.sunday{background:#fff;color:#ef4444!important;border:1.5px solid #ef4444!important;font-weight:700}
+.mini-cell.future{background:#fff;color:#000;border:0.5px solid #000}
+.mini-cell.empty{background:transparent;border:none}
+.year-nav{display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:12px}
+.year-nav select{border:1.5px solid #dde3ec;border-radius:8px;padding:7px 12px;font-size:14px;font-weight:600;background:#fff;color:#1a1a2e;cursor:pointer}
+/* detail */
+.detail-card{background:#fff;border-radius:12px;border:1.5px solid #dde3ec;padding:14px;margin-bottom:10px}
+.detail-title{font-size:13px;font-weight:600;color:#1a1a2e;margin-bottom:10px}
+.bar-row{margin-bottom:8px}
+.bar-lbl-row{display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px}
+.bar-lbl-row span:first-child{color:#6b7280}
+.bar-lbl-row span:last-child{font-weight:600;color:#1a1a2e}
+.bar-track{height:7px;background:#f0f2f5;border-radius:4px;overflow:hidden}
+.bar-fill2{height:100%;border-radius:4px}
+.week-table{width:100%;border-collapse:collapse;font-size:12px}
+.week-table th{color:#9ca3af;font-weight:600;padding:5px 4px;text-align:center;border-bottom:1px solid #f0f2f5;font-size:10px;text-transform:uppercase;letter-spacing:0.3px}
+.week-table td{padding:5px 4px;text-align:center;border-bottom:1px solid #f0f2f5;color:#1a1a2e}
+.week-table tr:last-child td{border-bottom:none}
+.badge{display:inline-block;padding:2px 7px;border-radius:5px;font-size:10px;font-weight:600}
+.badge.p{background:#dcfce7;color:#15803d}
+.badge.a{background:#fee2e2;color:#b91c1c}
+.badge.h{background:#fef3c7;color:#92400e}
+.badge.ch{background:#ede9fe;color:#6d28d9}
+.badge.s{background:#f1f5f9;color:#64748b}
+.log-row{display:flex;align-items:center;justify-content:space-between;padding:5px 2px;border-bottom:1px solid #f8fafc;font-size:12px}
+.pct-big{text-align:center;padding:8px 0}
+.pct-big .num{font-size:40px;font-weight:800}
+.pct-big .sub{font-size:11px;color:#9ca3af;margin-top:2px}
+.hidden{display:none}
+.geo-log{margin-top:10px;border-top:1px solid #f0f2f5;padding-top:8px}
+.geo-log-title{font-size:11px;font-weight:700;color:#6b7280;letter-spacing:0.05em;text-transform:uppercase;margin-bottom:6px;display:flex;align-items:center;gap:5px}
+.geo-log-empty{font-size:11px;color:#cbd5e1;text-align:center;padding:6px 0}
+.geo-log-item{display:flex;justify-content:space-between;align-items:center;padding:5px 8px;border-radius:7px;background:#f0fdf4;border:1px solid #bbf7d0;margin-bottom:4px}
+.geo-log-day{font-size:12px;font-weight:700;color:#15803d}
+.geo-log-time{font-size:11px;color:#16a34a;font-weight:600}
+.geo-log-date{font-size:10px;color:#6b7280;margin-top:1px}
+.bg-color-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:6px}
+.bg-swatch{width:26px;height:26px;border-radius:6px;border:2px solid transparent;cursor:pointer;transition:all 0.12s;flex-shrink:0}
+.bg-swatch.selected{border-color:#1a1a2e!important;transform:scale(1.18);box-shadow:0 0 0 1px #1a1a2e}
+.bg-swatch.clear-swatch{background:#fff;border:2px dashed #cbd5e1;font-size:13px;display:flex;align-items:center;justify-content:center;color:#94a3b8}
+.bg-custom-input{width:32px;height:26px;border:1.5px solid #dde3ec;border-radius:6px;cursor:pointer;padding:0 2px}
+.bg-intensity-row{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.bg-intensity-row label{font-size:11px;font-weight:600;color:#6b7280;white-space:nowrap}
+.intensity-btn{flex:1;padding:6px 4px;border-radius:8px;border:1.5px solid #dde3ec;cursor:pointer;font-size:11px;font-weight:600;background:#f8fafc;color:#6b7280;transition:all 0.1s;text-align:center}
+.intensity-btn.active{background:#1a1a2e;border-color:#1a1a2e;color:#fff}
+.intensity-btn:active{transform:scale(0.97)}
+.bg-palette-row{display:flex;gap:4px;margin-bottom:4px;align-items:center}
+.bg-palette-label{font-size:10px;color:#9ca3af;width:36px;flex-shrink:0}
+/* geo-fencing */
+.geo-card{background:#fff;border-radius:12px;border:1.5px solid #dde3ec;padding:14px;margin-bottom:10px}
+.geo-title{font-size:13px;font-weight:600;color:#1a1a2e;margin-bottom:10px;display:flex;align-items:center;gap:6px}
+.geo-status{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;margin-bottom:10px;font-size:13px;font-weight:600}
+.geo-status.idle{background:#f8fafc;border:1.5px solid #dde3ec;color:#6b7280}
+.geo-status.checking{background:#eff6ff;border:1.5px solid #93c5fd;color:#1d4ed8}
+.geo-status.inside{background:#dcfce7;border:1.5px solid #86efac;color:#15803d}
+.geo-status.outside{background:#fee2e2;border:1.5px solid #fca5a5;color:#b91c1c}
+.geo-status.nooffice{background:#fef3c7;border:1.5px solid #fcd34d;color:#92400e}
+.geo-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.geo-dot.idle{background:#94a3b8}
+.geo-dot.checking{background:#3b82f6;animation:pulse 1s infinite}
+.geo-dot.inside{background:#22c55e}
+.geo-dot.outside{background:#ef4444}
+.geo-dot.nooffice{background:#f59e0b}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
+.geo-btn-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px}
+.geo-btn{padding:11px 8px;border-radius:10px;border:1.5px solid #dde3ec;cursor:pointer;font-size:12px;font-weight:600;background:#f8fafc;color:#1a1a2e;display:flex;flex-direction:column;align-items:center;gap:4px;transition:all 0.15s}
+.geo-btn:active{transform:scale(0.97)}
+.geo-btn.primary{background:#1a1a2e;border-color:#1a1a2e;color:#fff}
+.geo-btn.green{background:#dcfce7;border-color:#86efac;color:#15803d}
+.geo-btn.red{background:#fee2e2;border-color:#fca5a5;color:#b91c1c}
+.geo-btn.amber{background:#fef3c7;border-color:#fcd34d;color:#92400e}
+.geo-btn .geo-icon{font-size:18px}
+.geo-office-info{font-size:11px;color:#9ca3af;text-align:center;margin-top:4px;padding:6px 0;border-top:1px solid #f0f2f5}
+.geo-radius-row{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.geo-radius-row label{font-size:11px;font-weight:600;color:#6b7280;white-space:nowrap}
+.geo-radius-input{flex:1;border:1.5px solid #dde3ec;border-radius:8px;padding:6px 8px;font-size:13px;font-weight:600;color:#1a1a2e}
+.geo-dist-badge{font-size:11px;color:#6b7280;text-align:center;margin-top:6px}
+@media print{
+  body{background:#fff!important;color:#000}
+  #app{max-width:100%;padding:8px}
+  .topbar{display:none!important}
+  .view-tabs,.month-nav,.more-btn,.overlay,#lock-banner{display:none!important}
+  .print-month-header{display:block!important;text-align:center;font-size:22px;font-weight:800;color:#1a1a2e;margin-bottom:12px;letter-spacing:0.02em}
+  .print-year-header{display:block!important;text-align:center;font-size:20px;font-weight:800;color:#1a1a2e;margin-bottom:12px}
+  body.print-year .yearly-grid{display:grid!important;grid-template-columns:1fr 1fr 1fr!important;gap:6px!important;width:100%!important}
+  body.print-year .year-nav{display:none!important}
+  body.print-year #yearly-grid{display:grid!important;width:100%!important}
+  body.print-year .mini-month{break-inside:avoid;border:1px solid #bbb!important;padding:5px!important;border-radius:4px!important}
+  body.print-year .mini-title{font-size:9px!important;font-weight:800!important;margin-bottom:3px!important;text-align:center}
+  body.print-year .mini-cal{display:grid!important;grid-template-columns:repeat(7,1fr)!important}
+  body.print-year .mini-dow{display:grid!important;grid-template-columns:repeat(7,1fr)!important}
+  body.print-year .mini-dow span{font-size:6px!important;text-align:center}
+  body.print-year .mini-cell{font-size:6px!important;border-radius:1px!important;min-height:10px!important;aspect-ratio:1}
+  body.print-year canvas{display:none!important}
+  body.print-year .summary,.geo-log,.geo-card,#geo-card{display:none!important}
+  body.print-year .print-year-header{font-size:16px!important;margin-bottom:8px!important}
+  .cal-wrap,.summary,.detail-card{border:1px solid #ccc;break-inside:avoid}
+  .day-cell.present{background:#22c55e!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .day-cell.absent{background:#ef4444!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .day-cell.halfday{background:#f59e0b!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .day-cell.co-holiday{background:#60a5fa!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  /* Month print: hide year/detail */
+  body:not(.print-year) #year-view,
+  body:not(.print-year) #detail-view{display:none!important}
+  body:not(.print-year) #month-view{display:block!important}
+  body:not(.print-year) canvas{display:none!important}
+  body:not(.print-year) .detail-card{display:none!important}
+  /* Year print: hide month/detail */
+  body.print-year #month-view,
+  body.print-year #detail-view{display:none!important}
+  body.print-year #year-view{display:block!important}
+  body.print-year .year-nav{display:none!important}
+  body.print-year #geo-card,.geo-card{display:none!important}
+  .mini-cell.present{background:#22c55e!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .mini-cell.absent{background:#ef4444!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .mini-cell.halfday{background:#f59e0b!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .mini-cell.co-holiday{background:#60a5fa!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .mini-cell.holiday{background:#f97316!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="topbar">
+    <div>
+      <div class="topbar-title">Praveen Kumar V</div>
+      <div class="topbar-sub">Self Attendance Tracker · 2026–2030</div>
+    </div>
+    <div style="display:flex;gap:6px;align-items:center">
+      <button onclick="printPDF()" style="background:rgba(255,255,255,0.12);border:none;color:#fff;font-size:16px;border-radius:8px;padding:6px 10px;cursor:pointer;line-height:1" title="Print / Save as PDF">🖨️</button>
+      <button id="lock-btn" onclick="toggleLock()" style="background:rgba(255,255,255,0.12);border:none;color:#fff;font-size:18px;border-radius:8px;padding:6px 10px;cursor:pointer;line-height:1" title="Lock/unlock past and upcoming days"></button>
+    </div>
+  </div>
+
+  <div id="lock-banner" class="hidden" style="background:#fffbeb;border:1.5px solid #fcd34d;color:#92400e;font-size:11px;font-weight:600;padding:8px 10px;border-radius:10px;margin-bottom:10px;text-align:center">🔓 Unlocked — you can edit past days and mark upcoming days</div>
+
+  <div class="view-tabs">
+    <div class="tab active" onclick="setView('month')">Monthly</div>
+    <div class="tab" onclick="setView('year')">Yearly</div>
+    <div class="tab" onclick="setView('detail')">Summary</div>
+  </div>
+
+  <!-- MONTHLY -->
+  <div id="month-view">
+    <div class="month-nav" style="display:flex;align-items:center;gap:6px">
+      <button class="nav-btn" onclick="prevMonth()">‹</button>
+      <select class="month-sel" id="month-sel" onchange="onMonthChange()"></select>
+      <select class="year-sel" id="year-sel" onchange="onYearChange()"></select>
+      <button class="nav-btn" onclick="nextMonth()">›</button>
+    </div>
+    <div class="print-month-header" id="print-month-header" style="display:none"></div>
+    <div class="cal-wrap">
+      <div class="cal-grid" id="cal-grid"></div>
+    </div>
+    <div class="detail-card">
+      <div class="detail-title">📊 Daily attendance graph</div>
+      <canvas id="day-chart" height="110"></canvas>
+      <div class="legend-row" style="margin-top:8px;margin-bottom:0">
+        <div class="legend-item"><div class="legend-dot" style="background:#22c55e"></div>Present</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#ef4444"></div>Absent</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#f59e0b"></div>Half day</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#60a5fa"></div>Co. Holiday</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#f97316"></div>Special Event</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#cbd5e1"></div>Sunday</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#e5e7eb"></div>Unmarked</div>
+      </div>
+      <div class="geo-log" id="geo-log-section" style="margin-top:10px;border-top:1px solid #f0f2f5;padding-top:8px">
+        <div class="geo-log-title">🛰️ Auto Geo Check-In Log</div>
+        <div id="geo-log-list"><div class="geo-log-empty">No auto check-ins this month</div></div>
+      </div>
+    </div>
+    <div class="summary">
+      <div class="summary-title">📊 Attendance this month</div>
+      <div class="legend-row">
+        <div class="legend-item"><div class="legend-dot" style="background:#22c55e"></div>Present</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#ef4444"></div>Absent</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#f59e0b"></div>Half day</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#60a5fa"></div>Co. Holiday</div>
+        <div class="legend-item"><div class="legend-dot" style="border:1px solid #fca5a5"></div>Sunday</div>
+      </div>
+      <div class="stats-grid">
+        <div class="stat-box"><div class="stat-lbl">Present</div><div class="stat-val green" id="cnt-p">0</div></div>
+        <div class="stat-box"><div class="stat-lbl">Absent</div><div class="stat-val red" id="cnt-a">0</div></div>
+        <div class="stat-box"><div class="stat-lbl">Half days</div><div class="stat-val amber" id="cnt-h">0</div></div>
+        <div class="stat-box"><div class="stat-lbl">Co. Holidays</div><div class="stat-val purple" id="cnt-ch">0</div></div>
+      </div>
+      <div class="pct-row">
+        <span class="pct-label">Attendance %</span>
+        <div class="pct-bar"><div class="pct-fill" id="pct-fill" style="width:0%"></div></div>
+        <span class="pct-val" id="pct-val">0.00%</span>
+      </div>
+      <div style="text-align:right;font-size:11px;color:#9ca3af;margin-top:4px">Total OT this month: <b id="ot-total" style="color:#1a1a2e">0 h</b></div>
+
+      <button class="more-btn" onclick="setView('detail')">📈 More Info</button>
+    </div>
+  </div>
+
+
+  <!-- GEO FENCING CARD -->
+  <div id="geo-card" class="geo-card">
+    <div class="geo-title">📍 Geo Check-In</div>
+    <div class="geo-status idle" id="geo-status">
+      <div class="geo-dot idle" id="geo-dot"></div>
+      <div id="geo-status-text">Tap "Check In" to verify your location</div>
+    </div>
+    <div id="geo-dist-badge" class="geo-dist-badge"></div>
+    <div class="geo-radius-row">
+      <label>Radius (m)</label>
+      <input type="number" class="geo-radius-input" id="geo-radius" value="150" min="50" max="2000" step="50">
+    </div>
+    <div class="geo-btn-row">
+      <button class="geo-btn primary" onclick="geoCheckIn()"><span class="geo-icon">📍</span>Check In</button>
+      <button id="geo-auto-btn" class="geo-btn" onclick="toggleGeoAuto()"><span class="geo-icon">🛰️</span>Auto: OFF</button>
+    </div>
+    <div class="geo-btn-row" style="grid-template-columns:1fr">
+      <button class="geo-btn amber" onclick="geoSetOffice()"><span class="geo-icon">🏢</span>Set Office Location</button>
+    </div>
+    <div class="geo-btn-row" style="grid-template-columns:1fr">
+      <button id="copy-link-btn" class="geo-btn" onclick="copyCheckinLink()"><span class="geo-icon">🔗</span>Copy Auto Check-In Link</button>
+    </div>
+    <div class="geo-btn-row">
+      <button class="geo-btn" onclick="backupData()"><span class="geo-icon">📋</span>Backup Data</button>
+      <button class="geo-btn" onclick="restoreData()"><span class="geo-icon">📥</span>Restore Data</button>
+    </div>
+    <div class="geo-office-info" id="geo-office-info">No office location saved yet. Go to your office and tap "Set Office".</div>
+    <div id="geo-net-badge" style="text-align:center;font-size:11px;font-weight:600;margin-top:5px;padding:4px 8px;border-radius:7px;background:#f0fdf4;border:1px solid #bbf7d0;color:#15803d">🌐 Online</div>
+  </div>
+
+
+  <!-- YEARLY -->
+  <div id="year-view" class="hidden">
+    <div class="year-nav">
+      <button class="nav-btn" onclick="prevYear()">‹</button>
+      <select id="year-sel2" onchange="renderYearly()"></select>
+      <button class="nav-btn" onclick="nextYear()">›</button>
+      <button onclick="printYearPDF()" style="background:#1a1a2e;border:none;color:#fff;font-size:14px;border-radius:8px;padding:6px 12px;cursor:pointer;font-weight:600;margin-left:4px" title="Print Year View">🖨️ Print</button>
+    </div>
+    <div class="detail-card">
+      <div class="detail-title">📈 Monthly attendance %</div>
+      <canvas id="year-chart" height="150"></canvas>
+    </div>
+    <div class="detail-card">
+      <div class="detail-title">🎯 Year overview</div>
+      <div class="pct-big"><div class="num" id="y-pct">0%</div><div class="sub">present + half-days×0.5 ÷ elapsed working days (excl. co. holidays)</div></div>
+      <div class="stats-grid" style="margin-top:12px">
+        <div class="stat-box"><div class="stat-lbl">Present</div><div class="stat-val green" id="y-p">0</div></div>
+        <div class="stat-box"><div class="stat-lbl">Absent</div><div class="stat-val red" id="y-a">0</div></div>
+        <div class="stat-box"><div class="stat-lbl">Half days</div><div class="stat-val amber" id="y-h">0</div></div>
+        <div class="stat-box"><div class="stat-lbl">Co. Holidays</div><div class="stat-val purple" id="y-ch">0</div></div>
+        <div class="stat-box"><div class="stat-lbl">Efficiency</div><div class="stat-val" id="y-eff">0%</div></div>
+        <div class="stat-box"><div class="stat-lbl">Total OT</div><div class="stat-val" id="y-ot">0 h</div></div>
+      </div>
+      <div style="font-size:10px;color:#9ca3af;text-align:center;margin-top:8px">Efficiency = (Present×8h + Half day×4h + OT hours) ÷ (Elapsed days×8h)</div>
+    </div>
+    <div class="print-year-header" id="print-year-header" style="display:none"></div>
+    <div class="yearly-grid" id="yearly-grid"></div>
+  </div>
+
+  <!-- DETAIL -->
+  <div id="detail-view" class="hidden">
+    <div class="month-nav">
+      <button class="nav-btn" onclick="prevMonth()">‹</button>
+      <select class="month-sel" id="d-month-sel" onchange="onDMonthChange()"></select>
+      <select class="year-sel" id="d-year-sel" onchange="onDYearChange()"></select>
+      <button class="nav-btn" onclick="nextMonth()">›</button>
+    </div>
+    <div class="detail-card">
+      <div class="detail-title">📈 2026–2030 overview</div>
+      <canvas id="span-chart" height="150"></canvas>
+    </div>
+    <div class="detail-card">
+      <div class="detail-title">🎯 Attendance overview</div>
+      <div class="pct-big"><div class="num" id="d-pct">0%</div><div class="sub">present + half-days×0.5 ÷ elapsed working days (excl. co. holidays)</div></div>
+      <div class="stats-grid" style="margin-top:12px">
+        <div class="stat-box"><div class="stat-lbl">Working days</div><div class="stat-val" id="d-wd">0</div></div>
+        <div class="stat-box"><div class="stat-lbl">Elapsed</div><div class="stat-val" id="d-el">0</div></div>
+        <div class="stat-box"><div class="stat-lbl">Present</div><div class="stat-val green" id="d-p">0</div></div>
+        <div class="stat-box"><div class="stat-lbl">Absent</div><div class="stat-val red" id="d-a">0</div></div>
+        <div class="stat-box"><div class="stat-lbl">Efficiency</div><div class="stat-val" id="d-eff">0%</div></div>
+        <div class="stat-box"><div class="stat-lbl">Total OT</div><div class="stat-val" id="d-ot">0 h</div></div>
+      </div>
+      <div style="font-size:10px;color:#9ca3af;text-align:center;margin-top:8px">Efficiency = (Present×8h + Half day×4h + OT hours) ÷ (Elapsed days×8h)</div>
+    </div>
+    <div class="detail-card">
+      <div class="detail-title">📊 Breakdown</div>
+      <div id="d-bars"></div>
+    </div>
+    <div class="detail-card">
+      <div class="detail-title">📅 Week by week</div>
+      <table class="week-table"><thead><tr><th>Week</th><th>Dates</th><th>P</th><th>A</th><th>H</th><th>🟣</th><th>Sun</th></tr></thead><tbody id="d-weeks"></tbody></table>
+    </div>
+    <div class="detail-card">
+      <div class="detail-title">📋 Day log</div>
+      <div id="d-daylog"></div>
+      <div id="d-lognote" style="font-size:11px;color:#9ca3af;text-align:center;margin-top:8px"></div>
+    </div>
+  </div>
+</div>
+
+<!-- BOTTOM SHEET -->
+<div class="overlay" id="overlay" onclick="overlayClick(event)">
+  <div class="sheet" id="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title" id="sheet-title">Mark attendance</div>
+    <div class="sheet-date" id="sheet-date"></div>
+    <div class="sheet-section-lbl">Shift</div>
+    <div class="shift-row" id="shift-row">
+      <button type="button" class="shift-btn" data-shift="first" onclick="selectShift(this)">🌅 1st</button>
+      <button type="button" class="shift-btn" data-shift="second" onclick="selectShift(this)">🌇 2nd</button>
+      <button type="button" class="shift-btn" data-shift="third" onclick="selectShift(this)">🌙 3rd</button>
+    </div>
+    <div class="sheet-section-lbl">OT Hours</div>
+    <div class="ot-row">
+      <input type="number" class="ot-input" id="ot-input" min="0" step="0.5" placeholder="0">
+      <span style="font-size:12px;color:#9ca3af">hrs</span>
+    </div>
+    <div class="sheet-section-lbl" id="note-lbl">Note</div>
+    <textarea class="note-input" id="note-input" rows="2" placeholder="Optional note for this day…"></textarea>
+    <div class="opt-grid">
+      <button class="opt-btn p" onclick="markDay('present')"><span class="icon">✅</span>Present</button>
+      <button class="opt-btn a" onclick="markDay('absent')"><span class="icon">❌</span>Absent</button>
+      <button class="opt-btn h" onclick="markDay('halfday')"><span class="icon">⏰</span>Half Day</button>
+      <button class="opt-btn ch" onclick="markDay('co-holiday')"><span class="icon">🏢</span>Co. Holiday</button>
+      <button class="opt-btn hol" onclick="markDay('holiday')"><span class="icon">⭐</span>Special Event</button>
+      <button class="opt-btn clr" onclick="markDay(null)"><span class="icon">🗑️</span>Clear</button>
+    </div>
+    <div class="sheet-section-lbl" id="bg-lbl">Cell Background</div>
+    <div id="bg-color-row">
+      <div class="bg-intensity-row">
+        <label>Intensity</label>
+        <button class="intensity-btn active" id="int-thin" onclick="setIntensity('thin')">🌸 Thin</button>
+        <button class="intensity-btn" id="int-medium" onclick="setIntensity('medium')">🎨 Medium</button>
+        <button class="intensity-btn" id="int-thick" onclick="setIntensity('thick')">🖌️ Thick</button>
+      </div>
+      <div class="bg-palette-row">
+        <div class="bg-swatch clear-swatch" title="No colour" onclick="selectBgColor('')">✕</div>
+        <div class="bg-swatch" data-base="#facc15" onclick="applyPaletteColor(this)" title="Yellow"></div>
+        <div class="bg-swatch" data-base="#4ade80" onclick="applyPaletteColor(this)" title="Green"></div>
+        <div class="bg-swatch" data-base="#60a5fa" onclick="applyPaletteColor(this)" title="Blue"></div>
+        <div class="bg-swatch" data-base="#f472b6" onclick="applyPaletteColor(this)" title="Pink"></div>
+        <div class="bg-swatch" data-base="#a78bfa" onclick="applyPaletteColor(this)" title="Purple"></div>
+        <div class="bg-swatch" data-base="#fb923c" onclick="applyPaletteColor(this)" title="Orange"></div>
+        <div class="bg-swatch" data-base="#22d3ee" onclick="applyPaletteColor(this)" title="Cyan"></div>
+        <div class="bg-swatch" data-base="#f87171" onclick="applyPaletteColor(this)" title="Red"></div>
+        <div class="bg-swatch" data-base="#34d399" onclick="applyPaletteColor(this)" title="Teal"></div>
+        <div class="bg-swatch" data-base="#94a3b8" onclick="applyPaletteColor(this)" title="Grey"></div>
+        <input type="color" class="bg-custom-input" id="bg-custom" title="Custom colour" onchange="selectBgColor(this.value)">
+      </div>
+    </div>
+    <button class="cancel-btn" onclick="closeSheet()">Cancel</button>
+  </div>
+</div>
+
+<script>
+const MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
+const DAYS=['SUN','MON','TUE','WED','THU','FRI','SAT'];
+const DAYNAMES=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+const TODAY=new Date();
+let curYear=Math.min(2030,Math.max(2026,TODAY.getFullYear()));
+let curMonth=TODAY.getMonth();
+let curView='month';
+let selKey=null;
+
+function key(y,m,d){return y+'-'+String(m+1).padStart(2,'0')+'-'+String(d).padStart(2,'0')}
+const STD_HOURS=8;
+function getEntry(y,m,d){
+  const raw=DATA[key(y,m,d)];
+  if(!raw)return null;
+  if(typeof raw==='string')return {st:raw,ot:0,shift:null};
+  return raw;
+}
+function getStatus(y,m,d){const e=getEntry(y,m,d);return e?e.st:null}
+function escapeHtml(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML}
+let selShift=null;
+let selBgColor='';
+function isSun(y,m,d){return new Date(y,m,d).getDay()===0}
+function isToday(y,m,d){return y===TODAY.getFullYear()&&m===TODAY.getMonth()&&d===TODAY.getDate()}
+function isFuture(y,m,d){return new Date(y,m,d)>new Date(TODAY.getFullYear(),TODAY.getMonth(),TODAY.getDate())}
+function isPast(y,m,d){return new Date(y,m,d)<new Date(TODAY.getFullYear(),TODAY.getMonth(),TODAY.getDate())}
+
+function loadData(){try{const s=localStorage.getItem('att_data_pk2');return s?JSON.parse(s):{}}catch(e){return {}}}
+function saveData(){try{localStorage.setItem('att_data_pk2',JSON.stringify(DATA))}catch(e){}}
+let DATA=loadData();
+
+function loadLock(){try{const s=localStorage.getItem('att_locked_pk2');return s===null?true:s==='1'}catch(e){return true}}
+function saveLock(){try{localStorage.setItem('att_locked_pk2',LOCKED?'1':'0')}catch(e){}}
+let LOCKED=loadLock();
+function updateLockUI(){
+  const btn=document.getElementById('lock-btn');
+  if(btn)btn.textContent=LOCKED?'🔒':'🔓';
+  const banner=document.getElementById('lock-banner');
+  if(banner)banner.classList.toggle('hidden',LOCKED);
+}
+function toggleLock(){
+  LOCKED=!LOCKED;
+  saveLock();
+  updateLockUI();
+  renderMonth();
+  if(curView==='year')renderYearly();
+}
+
+function buildSelectors(){
+  const mOpts=MONTHS.map((m,i)=>`<option value="${i}"${i===curMonth?' selected':''}>${m}</option>`).join('');
+  const yOpts=[2026,2027,2028,2029,2030].map(y=>`<option value="${y}"${y===curYear?' selected':''}>${y}</option>`).join('');
+  ['month-sel','d-month-sel'].forEach(id=>{const el=document.getElementById(id);if(el)el.innerHTML=mOpts});
+  ['year-sel','d-year-sel','year-sel2'].forEach(id=>{const el=document.getElementById(id);if(el){el.innerHTML=yOpts;if(id==='year-sel2')el.value=curYear;}});
+}
+
+function getCellClass(y,m,d){
+  const sun=isSun(y,m,d);
+  const fut=isFuture(y,m,d);
+  const past=isPast(y,m,d);
+  const st=getStatus(y,m,d);
+  let cls='day-cell';
+  if(st==='present')cls+=' present';
+  else if(st==='absent')cls+=' absent';
+  else if(st==='halfday')cls+=' halfday';
+  else if(st==='co-holiday')cls+=' co-holiday';
+  else if(st==='holiday')cls+=' holiday';
+  else if(sun)cls+=' sun-holiday';
+  if(sun)cls+=' sunday';
+  if(LOCKED){
+    if(fut)cls+=' future';
+    else if(past)cls+=' locked-cell';
+    // today in locked mode: no extra class, purple border from .today still shows
+  }else{
+    if(fut)cls+=' future-unlocked';
+    else if(past)cls+=' past-unlocked';
+  }
+  if(isToday(y,m,d))cls+=' today';
+  return cls;
+}
+
+function getCellLabel(y,m,d){
+  const fut=isFuture(y,m,d);
+  const entry=getEntry(y,m,d);
+  const st=entry?entry.st:null;
+  let lbl='';
+  if(fut&&!LOCKED&&st)lbl+='<span class="planned-tag">📌</span>';
+  if(entry&&entry.shift){
+    const sNum=entry.shift==='first'?'S1':entry.shift==='second'?'S2':'S3';
+    lbl+=`<span class="shift-badge">${sNum}</span>`;
+  }
+  if(entry&&entry.ot>0)lbl+=`<span class="ot-badge">+${entry.ot}h</span>`;
+  if(entry&&entry.note&&entry.note.trim()&&!isGeoAutoEntry(entry))lbl+='<span class="note-badge">📝</span>';
+  // Show check-in time on cell if auto geo-marked
+  if(entry&&isGeoAutoEntry(entry)){
+    const t=extractGeoTime(entry.note,entry);
+  }
+  return lbl;
+}
+
+function isGeoAutoEntry(entry){
+  if(!entry)return false;
+  // Primary: new geoTime field; fallback: old note-based format
+  if(entry.geoTime)return true;
+  if(!entry.note)return false;
+  return entry.note.includes('Auto Check-In')||entry.note.includes('Auto Geo Check-In');
+}
+function extractGeoTime(note, entry){
+  // New format: geoTime field
+  if(entry&&entry.geoTime)return entry.geoTime;
+  // Legacy: time stored in note
+  if(!note)return '—';
+  const idx=note.indexOf('Auto Check-In');
+  if(idx===-1)return '—';
+  const after=note.substring(idx+'Auto Check-In'.length).trim();
+  return after||'—';
+}
+function renderGeoLog(){
+  const list=document.getElementById('geo-log-list');
+  if(!list)return;
+  const dim=new Date(curYear,curMonth+1,0).getDate();
+  const items=[];
+  for(let d=1;d<=dim;d++){
+    // Use same key() function as the rest of the app
+    const k=key(curYear,curMonth,d);
+    const entry=DATA[k];
+    if(entry&&isGeoAutoEntry(entry)){
+      const t=extractGeoTime(entry.note,entry);
+      const dateObj=new Date(curYear,curMonth,d);
+      const dayName=dateObj.toLocaleDateString([],{weekday:'long'});
+      const fullDate=dateObj.toLocaleDateString([],{day:'numeric',month:'long',year:'numeric'});
+      const stLabel=entry.st==='co-holiday'?'Co. Holiday':entry.st==='holiday'?'Special Event':entry.st==='halfday'?'Half Day':entry.st==='absent'?'Absent':'Present';
+      const stColor=entry.st==='co-holiday'?'#60a5fa':entry.st==='holiday'?'#f97316':entry.st==='halfday'?'#f59e0b':entry.st==='absent'?'#ef4444':'#22c55e';
+      items.push({d,dayName,fullDate,time:t,stLabel,stColor});
+    }
+  }
+  if(items.length===0){
+    list.innerHTML='<div class="geo-log-empty">No auto check-ins this month</div>';
+    return;
+  }
+  list.innerHTML=items.map(it=>`
+    <div class="geo-log-item">
+      <div>
+        <div class="geo-log-day">${it.dayName}</div>
+        <div class="geo-log-date">📅 ${it.fullDate}</div>
+      </div>
+      <div style="text-align:right">
+        <div class="geo-log-time">🕐 ${it.time}</div>
+        <div style="font-size:10px;font-weight:700;color:${it.stColor};margin-top:2px">${it.stLabel}</div>
+      </div>
+    </div>`).join('');
+}
+function renderMonth(){
+  const grid=document.getElementById('cal-grid');
+  const dim=new Date(curYear,curMonth+1,0).getDate();
+  const first=new Date(curYear,curMonth,1).getDay();
+  let html=DAYS.map(d=>`<div class="day-header${d==='SUN'?' sun':''}">${d}</div>`).join('');
+  for(let i=0;i<first;i++)html+=`<div class="day-cell empty"></div>`;
+  for(let d=1;d<=dim;d++){
+    const today=isToday(curYear,curMonth,d);
+    const entry=getEntry(curYear,curMonth,d);
+    const hasNote=entry&&entry.note;
+    // Locked: nothing editable; only tappable if has a note to show
+    // Unlocked: everything clickable
+    const clickable=!LOCKED||(LOCKED&&hasNote);
+    const click=clickable?`onclick="openSheet(${d})"`:'';
+    const cellClass=getCellClass(curYear,curMonth,d)+(LOCKED&&hasNote?' has-note-locked':'');
+    const bgStyle=entry&&entry.bg&&!['present','absent','halfday','co-holiday'].includes(entry&&entry.st)?`style="background:${entry.bg}!important"`:'';
+    html+=`<div class="${cellClass}" ${click} ${bgStyle}><span class="day-num">${d}</span>${getCellLabel(curYear,curMonth,d)}</div>`;
+  }
+  grid.innerHTML=html;
+  updateStats();
+  renderDayChart();
+  renderGeoLog();
+}
+
+function updateStats(){
+  const s=getMonthStats(curYear,curMonth);
+  document.getElementById('cnt-p').textContent=s.p;
+  document.getElementById('cnt-a').textContent=s.a;
+  document.getElementById('cnt-h').textContent=s.h;
+  document.getElementById('cnt-ch').textContent=s.ch;
+  const pctStr=s.pct.toFixed(2)+'%';
+  document.getElementById('pct-val').textContent=pctStr;
+  document.getElementById('pct-fill').style.width=Math.min(s.pct,100)+'%';
+  const color=pctColor(s.pct);
+  document.getElementById('pct-fill').style.background=color;
+  document.getElementById('pct-val').style.color=s.pct>=80?'#16a34a':s.pct>=60?'#d97706':'#dc2626';
+  document.getElementById('ot-total').textContent=s.ot+' h';
+}
+
+function renderDayChart(){
+  const cvs=document.getElementById('day-chart');
+  if(!cvs)return;
+  const dim=new Date(curYear,curMonth+1,0).getDate();
+  const dpr=window.devicePixelRatio||1;
+  const cssW=cvs.clientWidth||(cvs.parentElement?cvs.parentElement.clientWidth-28:300);
+  const cssH=110;
+  cvs.width=cssW*dpr;cvs.height=cssH*dpr;
+  cvs.style.width=cssW+'px';cvs.style.height=cssH+'px';
+  const ctx=cvs.getContext('2d');
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.clearRect(0,0,cssW,cssH);
+  const padTop=6,padBottom=14,padLeft=2,padRight=2;
+  const chartH=cssH-padTop-padBottom;
+  const gap=dim>28?1.5:2;
+  const barW=(cssW-padLeft-padRight-gap*(dim-1))/dim;
+  for(let d=1;d<=dim;d++){
+    const sun=isSun(curYear,curMonth,d);
+    const fut=isFuture(curYear,curMonth,d);
+    const st=getStatus(curYear,curMonth,d);
+    let pct=8,color='#e5e7eb';
+    if(st==='present'){pct=100;color='#22c55e';}
+    else if(st==='halfday'){pct=50;color='#f59e0b';}
+    else if(st==='absent'){pct=20;color='#ef4444';}
+    else if(st==='co-holiday'){pct=100;color='#60a5fa';}
+    else if(sun){pct=30;color='#cbd5e1';}
+    else if(fut){pct=10;color='#eef1f5';}
+    const bh=(pct/100)*chartH;
+    const x=padLeft+(d-1)*(barW+gap);
+    const yTop=padTop+chartH-bh;
+    ctx.fillStyle=color;
+    const r=Math.min(2,barW/2);
+    ctx.beginPath();
+    ctx.moveTo(x,yTop+r);
+    ctx.arcTo(x,yTop,x+r,yTop,r);
+    ctx.lineTo(x+barW-r,yTop);
+    ctx.arcTo(x+barW,yTop,x+barW,yTop+r,r);
+    ctx.lineTo(x+barW,padTop+chartH);
+    ctx.lineTo(x,padTop+chartH);
+    ctx.closePath();
+    ctx.fill();
+    if(isToday(curYear,curMonth,d)){
+      ctx.strokeStyle='#3b82f6';ctx.lineWidth=1.5;
+      ctx.strokeRect(x-0.5,padTop-0.5,barW+1,chartH+1);
+    }
+    if(d===1||d%5===0||d===dim){
+      ctx.fillStyle='#9ca3af';
+      ctx.font='8px -apple-system,sans-serif';
+      ctx.textAlign='center';
+      ctx.fillText(String(d),x+barW/2,cssH-3);
+    }
+  }
+}
+
+function getMonthStats(y,m){
+  const dim=new Date(y,m+1,0).getDate();
+  let p=0,a=0,h=0,ch=0,wd=0,el=0,ot=0;
+  for(let d=1;d<=dim;d++){
+    const sun=isSun(y,m,d);
+    const entry=getEntry(y,m,d);
+    const st=entry?entry.st:null;
+    const fut=isFuture(y,m,d);
+    if(!sun&&st!=='co-holiday'){wd++;if(!fut)el++;}
+    if(st==='present')p++;
+    else if(st==='absent')a++;
+    else if(st==='halfday')h++;
+    else if(st==='co-holiday')ch++;
+    if(entry&&entry.ot)ot+=entry.ot;
+  }
+  const pct=el>0?Math.round((p+h*0.5)/el*10000)/100:0;
+  const eff=el>0?Math.round((p*STD_HOURS+h*STD_HOURS*0.5+ot)/(el*STD_HOURS)*10000)/100:0;
+  return {p,a,h,ch,wd,el,pct,ot,eff};
+}
+function getYearStats(y){
+  let p=0,a=0,h=0,ch=0,el=0,ot=0;
+  for(let m=0;m<12;m++){const s=getMonthStats(y,m);p+=s.p;a+=s.a;h+=s.h;ch+=s.ch;el+=s.el;ot+=s.ot;}
+  const pct=el>0?Math.round((p+h*0.5)/el*10000)/100:0;
+  const eff=el>0?Math.round((p*STD_HOURS+h*STD_HOURS*0.5+ot)/(el*STD_HOURS)*10000)/100:0;
+  return {p,a,h,ch,el,pct,ot,eff};
+}
+function pctColor(pct){return pct>=80?'#22c55e':pct>=60?'#f59e0b':'#ef4444'}
+function drawBarChart(canvasId,labels,values,colors){
+  const cvs=document.getElementById(canvasId);
+  if(!cvs)return;
+  const dpr=window.devicePixelRatio||1;
+  const cssW=cvs.clientWidth||(cvs.parentElement?cvs.parentElement.clientWidth-28:300);
+  const cssH=150;
+  cvs.width=cssW*dpr;cvs.height=cssH*dpr;
+  cvs.style.width=cssW+'px';cvs.style.height=cssH+'px';
+  const ctx=cvs.getContext('2d');
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.clearRect(0,0,cssW,cssH);
+  const padTop=8,padBottom=18,padLeft=2,padRight=2;
+  const chartH=cssH-padTop-padBottom;
+  const n=labels.length;
+  const gap=4;
+  const barW=(cssW-padLeft-padRight-gap*(n-1))/n;
+  // gridlines at 0/50/100
+  ctx.strokeStyle='#f0f2f5';ctx.lineWidth=1;
+  [0,50,100].forEach(v=>{
+    const yy=padTop+chartH-(v/100*chartH);
+    ctx.beginPath();ctx.moveTo(padLeft,yy);ctx.lineTo(cssW-padRight,yy);ctx.stroke();
+  });
+  for(let i=0;i<n;i++){
+    const v=Math.max(0,Math.min(100,values[i]));
+    const bh=(v/100)*chartH;
+    const x=padLeft+i*(barW+gap);
+    const yTop=padTop+chartH-bh;
+    ctx.fillStyle=colors[i]||'#3b82f6';
+    const r=3;
+    ctx.beginPath();
+    ctx.moveTo(x,yTop+r);
+    ctx.arcTo(x,yTop,x+r,yTop,r);
+    ctx.lineTo(x+barW-r,yTop);
+    ctx.arcTo(x+barW,yTop,x+barW,yTop+r,r);
+    ctx.lineTo(x+barW,padTop+chartH);
+    ctx.lineTo(x,padTop+chartH);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle='#9ca3af';
+    ctx.font='9px -apple-system,sans-serif';
+    ctx.textAlign='center';
+    ctx.fillText(labels[i],x+barW/2,cssH-5);
+  }
+}
+function renderYearChart(){
+  const ys=parseInt(document.getElementById('year-sel2').value)||curYear;
+  const labels=MONTHS.map(m=>m.slice(0,1));
+  const values=[],colors=[];
+  for(let m=0;m<12;m++){const s=getMonthStats(ys,m);values.push(s.pct);colors.push(pctColor(s.pct));}
+  drawBarChart('year-chart',labels,values,colors);
+  const y=getYearStats(ys);
+  document.getElementById('y-pct').textContent=y.pct.toFixed(2)+'%';
+  document.getElementById('y-pct').style.color=pctColor(y.pct);
+  document.getElementById('y-p').textContent=y.p;
+  document.getElementById('y-a').textContent=y.a;
+  document.getElementById('y-h').textContent=y.h;
+  document.getElementById('y-ch').textContent=y.ch;
+  document.getElementById('y-eff').textContent=y.eff.toFixed(2)+'%';
+  document.getElementById('y-ot').textContent=y.ot+' h';
+}
+function renderSpanChart(){
+  const years=[2026,2027,2028,2029,2030];
+  const values=years.map(y=>getYearStats(y).pct);
+  const colors=values.map(pctColor);
+  drawBarChart('span-chart',years.map(String),values,colors);
+}
+function renderYearly(){
+  const ys=parseInt(document.getElementById('year-sel2').value)||curYear;
+  const dowRow=DAYNAMES.map(d=>`<span${d==='Sun'?' class="sun"':''}>${d}</span>`).join('');
+  let html='';
+  for(let m=0;m<12;m++){
+    const dim=new Date(ys,m+1,0).getDate();
+    const first=new Date(ys,m,1).getDay();
+    let cells='';
+    for(let i=0;i<first;i++)cells+=`<div class="mini-cell empty"></div>`;
+    for(let d=1;d<=dim;d++){
+      const sun=isSun(ys,m,d);
+      const fut=new Date(ys,m,d)>TODAY;
+      const st=getStatus(ys,m,d);
+      let cls='mini-cell';
+      if(st==='present')cls+=' present';
+      else if(st==='absent')cls+=' absent';
+      else if(st==='halfday')cls+=' halfday';
+      else if(st==='co-holiday')cls+=' co-holiday';
+      else if(st==='holiday')cls+=' holiday';
+      else if(sun)cls+=' sun-holiday';
+      const miniEntry=getEntry(ys,m,d);
+      const miniBg=st==='holiday'&&miniEntry&&miniEntry.bg?`style="background:${miniEntry.bg}"`:'' ;
+      cells+=`<div class="${cls}" ${miniBg}>${d}</div>`;
+    }
+    html+=`<div class="mini-month"><div class="mini-title">${MONTHS[m].slice(0,3)} ${ys}</div><div class="mini-dow">${dowRow}</div><div class="mini-cal">${cells}</div></div>`;
+  }
+  document.getElementById('yearly-grid').innerHTML=html;
+  renderYearChart();
+}
+
+function renderDetail(){
+  renderSpanChart();
+  const dim=new Date(curYear,curMonth+1,0).getDate();
+  let p=0,a=0,h=0,ch=0,wd=0,el=0,sun=0,ot=0,days=[];
+  for(let d=1;d<=dim;d++){
+    const s=isSun(curYear,curMonth,d);
+    const fut=isFuture(curYear,curMonth,d);
+    const entry=getEntry(curYear,curMonth,d);
+    const st=entry?entry.st:null;
+    if(s)sun++;
+    else if(st==='co-holiday')ch++;
+    else{wd++;if(!fut)el++;}
+    if(st==='present')p++;else if(st==='absent')a++;else if(st==='halfday')h++;
+    if(entry&&entry.ot)ot+=entry.ot;
+    days.push({d,sun:s,fut,st,entry});
+  }
+  const pct=el>0?Math.round((p+h*0.5)/el*10000)/100:0;
+  const eff=el>0?Math.round((p*STD_HOURS+h*STD_HOURS*0.5+ot)/(el*STD_HOURS)*10000)/100:0;
+  const pEl=document.getElementById('d-pct');
+  pEl.textContent=pct.toFixed(2)+'%';
+  pEl.style.color=pct>=80?'#16a34a':pct>=60?'#d97706':'#dc2626';
+  document.getElementById('d-wd').textContent=wd;
+  document.getElementById('d-el').textContent=el;
+  document.getElementById('d-p').textContent=p;
+  document.getElementById('d-a').textContent=a;
+  document.getElementById('d-eff').textContent=eff.toFixed(2)+'%';
+  document.getElementById('d-ot').textContent=ot+' h';
+
+  const bars=[
+    {lbl:'Present',val:p,max:el,color:'#22c55e'},
+    {lbl:'Absent',val:a,max:el,color:'#ef4444'},
+    {lbl:'Half days',val:h,max:el,color:'#f59e0b'},
+    {lbl:'Company holidays',val:ch,max:dim,color:'#60a5fa'},
+    {lbl:'Sundays',val:sun,max:dim,color:'#94a3b8'},
+    {lbl:'Unmarked working days',val:Math.max(0,el-p-a-h),max:el,color:'#cbd5e1'},
+  ];
+  document.getElementById('d-bars').innerHTML=bars.map(b=>{
+    const pv=b.max>0?Math.round(b.val/b.max*100):0;
+    return `<div class="bar-row"><div class="bar-lbl-row"><span>${b.lbl}</span><span>${b.val}</span></div><div class="bar-track"><div class="bar-fill2" style="width:${pv}%;background:${b.color}"></div></div></div>`;
+  }).join('');
+
+  const weeks=[];let wk={n:1,s:1,e:0,p:0,a:0,h:0,ch:0,sun:0};let wn=1;
+  for(let d=1;d<=dim;d++){
+    const day=days[d-1];
+    if(day.sun)wk.sun++;
+    else if(day.st==='present')wk.p++;
+    else if(day.st==='absent')wk.a++;
+    else if(day.st==='halfday')wk.h++;
+    else if(day.st==='co-holiday')wk.ch++;
+    const dow=new Date(curYear,curMonth,d).getDay();
+    if(dow===6||d===dim){wk.e=d;weeks.push({...wk});wn++;wk={n:wn,s:d+1,e:0,p:0,a:0,h:0,ch:0,sun:0};}
+  }
+  document.getElementById('d-weeks').innerHTML=weeks.map(w=>
+    `<tr><td>W${w.n}</td><td style="color:#9ca3af;font-size:10px">${w.s}–${w.e}</td><td>${w.p}</td><td>${w.a}</td><td>${w.h}</td><td>${w.ch}</td><td>${w.sun}</td></tr>`
+  ).join('');
+
+  const allDays=days.filter(d=>!d.sun&&!d.fut);
+  document.getElementById('d-daylog').innerHTML=allDays.map(d=>{
+    const dn=DAYNAMES[new Date(curYear,curMonth,d.d).getDay()];
+    let cls='s',lbl='—';
+    if(d.st==='present'){cls='p';lbl='Present';}
+    else if(d.st==='absent'){cls='a';lbl='Absent';}
+    else if(d.st==='halfday'){cls='h';lbl='Half Day';}
+    else if(d.st==='co-holiday'){cls='ch';lbl='Co. Holiday';}
+    else if(d.st==='holiday'){cls='hol';lbl='Special Event';}
+    let extra='';
+    const shiftName={first:'1st shift',second:'2nd shift',third:'3rd shift'};
+    if(d.entry&&d.entry.shift)extra+=` <span style="color:#9ca3af;font-size:10px">${shiftName[d.entry.shift]}</span>`;
+    if(d.entry&&d.entry.ot>0)extra+=` <span style="color:#9ca3af;font-size:10px">+${d.entry.ot}h OT</span>`;
+    const noteHtml=d.entry&&d.entry.note?`<div style="font-size:10px;color:#9ca3af;font-style:italic;padding:0 2px 4px">📝 ${escapeHtml(d.entry.note)}</div>`:'';
+    return `<div><div class="log-row"><span>${d.d} ${dn}${extra}</span><span class="badge ${cls}">${lbl}</span></div>${noteHtml}</div>`;
+  }).join('');
+
+  const um=allDays.filter(d=>!d.st).length;
+  document.getElementById('d-lognote').textContent=
+    um>0?`${um} working day${um>1?'s':''} not yet marked.`:
+    allDays.length===0?'No elapsed days yet.':'All elapsed days marked ✓';
+}
+
+function openSheet(d){
+  const fut=isFuture(curYear,curMonth,d);
+  const past=isPast(curYear,curMonth,d);
+  const entry=getEntry(curYear,curMonth,d);
+  const dn=DAYNAMES[new Date(curYear,curMonth,d).getDay()];
+
+  if(LOCKED){
+    // Locked: fully read-only. Show note sheet only if there's a real (non-geo) note.
+    if(!entry||!entry.note||isGeoAutoEntry(entry))return;
+    selKey=null;
+    document.getElementById('sheet-title').textContent=`${d} ${MONTHS[curMonth]} ${curYear}`;
+    document.getElementById('sheet-date').textContent=`${dn} — 🔒 Locked · Note`;
+    document.getElementById('shift-row').style.display='none';
+    document.getElementById('ot-input').closest('.ot-row').style.display='none';
+    document.querySelector('.opt-grid').style.display='none';
+    document.getElementById('bg-color-row').style.display='none';
+    document.querySelectorAll('.sheet-section-lbl').forEach(el=>{
+      el.style.display=(el.id==='note-lbl')?'':'none'; if(el.id==='bg-lbl')el.style.display='none';
+    });
+    document.getElementById('note-lbl').textContent='📝 Note';
+    if(isGeoAutoEntry(entry)){
+      document.getElementById('note-lbl').style.display='none';
+      document.getElementById('note-input').style.display='none';
+    } else {
+      document.getElementById('note-lbl').style.display='';
+      document.getElementById('note-input').style.display='';
+      document.getElementById('note-input').value=entry.note;
+      document.getElementById('note-input').readOnly=true;
+      document.getElementById('note-input').style.background='#f8fafc';
+      document.getElementById('note-input').style.color='#374151';
+      document.getElementById('note-input').style.borderColor='#e2e8f0';
+    }
+    document.getElementById('overlay').classList.add('show');
+    return;
+  }
+
+  // Unlocked: full edit mode
+  document.getElementById('shift-row').style.display='';
+  document.getElementById('ot-input').closest('.ot-row').style.display='';
+  document.querySelector('.opt-grid').style.display='';
+  document.getElementById('bg-color-row').style.display='';
+  document.getElementById('note-input').readOnly=false;
+  document.getElementById('note-input').style.background='';
+  document.getElementById('note-input').style.color='';
+  document.getElementById('note-input').style.borderColor='';
+  document.querySelectorAll('.sheet-section-lbl').forEach(el=>el.style.display='');
+  document.getElementById('note-lbl').textContent='Note';
+  selKey=key(curYear,curMonth,d);
+  document.getElementById('sheet-title').textContent=`${d} ${MONTHS[curMonth]} ${curYear}`;
+  let sub=`${dn} — tap to mark`;
+  if(fut)sub=`${dn} — upcoming day, mark planned attendance`;
+  else if(past)sub=`${dn} — editing past day (unlocked)`;
+  document.getElementById('sheet-date').textContent=sub;
+  selShift=entry?entry.shift:null;
+  document.querySelectorAll('.shift-btn').forEach(b=>b.classList.toggle('selected',b.dataset.shift===selShift));
+  document.getElementById('ot-input').value=entry&&entry.ot?entry.ot:'';
+  // Don't show geo auto note in note field
+  // For geo entries (new geoTime field OR legacy note-based), hide note completely
+  const entryNote=(entry&&isGeoAutoEntry(entry))?'':((entry&&entry.note)||'');
+  document.getElementById('note-input').value=entryNote;
+  // Hide note section for geo auto entries
+  const noteLbl=document.getElementById('note-lbl');
+  const noteInput=document.getElementById('note-input');
+  // Hide note section completely for geo entries (new + legacy)
+  const _isGeo=entry&&isGeoAutoEntry(entry);
+  if(noteLbl)noteLbl.style.display=_isGeo?'none':'';
+  if(noteInput){noteInput.style.display=_isGeo?'none':'';noteInput.style.fontSize='';}
+
+  selBgColor=entry&&entry.bg?entry.bg:'';
+  selIntensity='thin';
+  document.querySelectorAll('.intensity-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('int-thin').classList.add('active');
+  document.querySelectorAll('.bg-swatch[data-base]').forEach(s=>{s.style.background=applyAlpha(s.dataset.base,'thin');});
+  document.querySelectorAll('.bg-swatch').forEach(s=>s.classList.remove('selected'));
+  if(selBgColor){
+    const match=[...document.querySelectorAll('.bg-swatch[data-base]')].find(s=>{
+      return ['thin','medium','thick'].some(i=>applyAlpha(s.dataset.base,i)===selBgColor);
+    });
+    if(match){
+      // detect intensity
+      for(const i of['thin','medium','thick']){if(applyAlpha(match.dataset.base,i)===selBgColor){selIntensity=i;break;}}
+      document.getElementById('int-'+selIntensity).classList.add('active');
+      document.querySelectorAll('.bg-swatch[data-base]').forEach(s=>{s.style.background=applyAlpha(s.dataset.base,selIntensity);});
+      match.classList.add('selected');
+    } else {document.getElementById('bg-custom').value=selBgColor;}
+  } else {
+    document.querySelector('.clear-swatch').classList.add('selected');
+  }
+  document.getElementById('overlay').classList.add('show');
+}
+// intensity: thin=opacity 0.25, medium=0.55, thick=1.0
+let selIntensity='thin';
+const INTENSITY_ALPHA={thin:'40',medium:'80',thick:'ff'};
+function hexToRgb(hex){hex=hex.replace('#','');const b=parseInt(hex,16);return[(b>>16)&255,(b>>8)&255,b&255];}
+function applyAlpha(baseHex,intensity){
+  const [r,g,b]=hexToRgb(baseHex);
+  const a=INTENSITY_ALPHA[intensity];
+  return '#'+[r,g,b].map(v=>v.toString(16).padStart(2,'0')).join('')+a;
+}
+function setIntensity(level){
+  selIntensity=level;
+  document.querySelectorAll('.intensity-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('int-'+level).classList.add('active');
+  // Update all swatch preview colors
+  document.querySelectorAll('.bg-swatch[data-base]').forEach(s=>{
+    s.style.background=applyAlpha(s.dataset.base,level);
+  });
+  // Reapply current color with new intensity if a base swatch is selected
+  const sel=document.querySelector('.bg-swatch[data-base].selected');
+  if(sel) applyPaletteColor(sel);
+}
+function applyPaletteColor(el){
+  const base=el.dataset.base;
+  const color=applyAlpha(base,selIntensity);
+  selectBgColor(color,el);
+}
+function selectBgColor(color,swatchEl){
+  selBgColor=color;
+  document.querySelectorAll('.bg-swatch').forEach(s=>s.classList.remove('selected'));
+  if(color){
+    if(swatchEl){swatchEl.classList.add('selected');}
+    else{
+      const match=[...document.querySelectorAll('.bg-swatch[data-base]')].find(s=>s.style.background===color||s.style.backgroundColor===color);
+      if(match)match.classList.add('selected');
+      else document.getElementById('bg-custom').value=color;
+    }
+  } else {
+    document.querySelector('.clear-swatch').classList.add('selected');
+  }
+  // Live preview
+  if(selKey){
+    const entry=DATA[selKey]||{};
+    if(color)entry.bg=color; else delete entry.bg;
+    if(Object.keys(entry).length>0||(DATA[selKey]&&DATA[selKey].st))DATA[selKey]=entry;
+    saveData();renderMonth();
+  }
+}
+function selectShift(btn){
+  const s=btn.dataset.shift;
+  selShift=(selShift===s)?null:s;
+  document.querySelectorAll('.shift-btn').forEach(b=>b.classList.toggle('selected',b.dataset.shift===selShift));
+}
+function overlayClick(e){if(e.target===document.getElementById('overlay'))closeSheet();}
+function closeSheet(){
+  document.getElementById('overlay').classList.remove('show');
+  selKey=null;selShift=null;selBgColor='';selIntensity='thin';
+  const _nl=document.getElementById('note-lbl');const _ni=document.getElementById('note-input');
+  if(_nl)_nl.style.display='';if(_ni)_ni.style.display='';
+  // Reset read-only state
+  document.getElementById('shift-row').style.display='';
+  document.getElementById('ot-input').closest('.ot-row').style.display='';
+  document.querySelector('.opt-grid').style.display='';
+  document.getElementById('bg-color-row').style.display='';
+  document.getElementById('note-input').readOnly=false;
+  document.getElementById('note-input').style.background='';
+  document.getElementById('note-input').style.color='';
+  document.getElementById('note-input').style.borderColor='';
+  document.querySelectorAll('.sheet-section-lbl').forEach(el=>el.style.display='');
+  document.getElementById('note-lbl').textContent='Note';
+}
+function markDay(st){
+  if(!selKey)return;
+  if(st===null){
+    delete DATA[selKey];
+    selBgColor='';
+  }else{
+    const ot=Math.max(0,parseFloat(document.getElementById('ot-input').value)||0);
+    const note=document.getElementById('note-input').value.trim();
+    // Special Event: use chosen bg color; if none chosen use default orange
+    const bg=st==='holiday'?(selBgColor||'#f97316'):selBgColor||'';
+    DATA[selKey]={st,ot,shift:selShift,note,bg};
+  }
+  saveData();
+  closeSheet();
+  renderMonth();
+  if(curView==='detail')renderDetail();
+  if(curView==='year')renderYearly();
+}
+
+function prevMonth(){
+  if(curMonth===0){if(curYear<=2026)return;curYear--;curMonth=11;}else curMonth--;
+  buildSelectors();renderMonth();if(curView==='detail')renderDetail();
+}
+function nextMonth(){
+  if(curMonth===11){if(curYear>=2030)return;curYear++;curMonth=0;}else curMonth++;
+  buildSelectors();renderMonth();if(curView==='detail')renderDetail();
+}
+function prevYear(){const el=document.getElementById('year-sel2');let y=parseInt(el.value);if(y>2026){el.value=y-1;renderYearly();}}
+function nextYear(){const el=document.getElementById('year-sel2');let y=parseInt(el.value);if(y<2030){el.value=y+1;renderYearly();}}
+function onMonthChange(){curMonth=parseInt(document.getElementById('month-sel').value);buildSelectors();renderMonth();}
+function onYearChange(){curYear=parseInt(document.getElementById('year-sel').value);buildSelectors();renderMonth();}
+function onDMonthChange(){curMonth=parseInt(document.getElementById('d-month-sel').value);buildSelectors();renderDetail();}
+function onDYearChange(){curYear=parseInt(document.getElementById('d-year-sel').value);buildSelectors();renderDetail();}
+
+function setView(v){
+  curView=v;
+  ['month-view','year-view','detail-view'].forEach(id=>document.getElementById(id).classList.add('hidden'));
+  document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',['month','year','detail'][i]===v));
+  document.getElementById(v+'-view').classList.remove('hidden');
+  buildSelectors();
+  if(v==='year')renderYearly();
+  if(v==='detail')renderDetail();
+}
+
+// ===== PDF EXPORT FOR THE ANDROID APP =====
+// window.print() does nothing inside an Android WebView, so the APK draws the calendar itself,
+// wraps it in a real PDF and opens the share sheet (Save to Files / Drive / Print / WhatsApp…).
+function pdfCellStyle(y,m,d){
+  const e=getEntry(y,m,d),st=e?e.st:null,sun=isSun(y,m,d);
+  const custom=e&&e.bg&&!['present','absent','halfday','co-holiday'].includes(st)?e.bg:null;
+  if(st==='present')return{bg:'#22c55e',fg:'#fff'};
+  if(st==='absent')return{bg:'#ef4444',fg:'#fff'};
+  if(st==='halfday')return{bg:'#f59e0b',fg:'#fff'};
+  if(st==='co-holiday')return{bg:'#60a5fa',fg:'#000'};
+  if(st==='holiday')return custom?{bg:custom,fg:'#111'}:{bg:'#f97316',fg:'#fff'};
+  if(custom)return{bg:custom,fg:sun?'#ef4444':'#111',border:'#cbd5e1'};
+  if(sun)return{bg:'#fff',fg:'#ef4444',border:'#ef4444'};
+  return{bg:'#fff',fg:'#111',border:'#cbd5e1'};
+}
+function pdfRR(c,x,y,w,h,r){
+  c.beginPath();c.moveTo(x+r,y);c.lineTo(x+w-r,y);c.arcTo(x+w,y,x+w,y+r,r);
+  c.lineTo(x+w,y+h-r);c.arcTo(x+w,y+h,x+w-r,y+h,r);c.lineTo(x+r,y+h);c.arcTo(x,y+h,x,y+h-r,r);
+  c.lineTo(x,y+r);c.arcTo(x,y,x+r,y,r);c.closePath();
+}
+const PDF_FONT='Roboto,-apple-system,"Segoe UI",Arial,sans-serif';
+function pdfLegend(c,W,y){
+  const items=[['#22c55e','Present'],['#ef4444','Absent'],['#f59e0b','Half day'],['#60a5fa','Co. Holiday'],['#f97316','Special Event'],['#ffffff','Sunday / Unmarked']];
+  c.font='500 24px '+PDF_FONT;c.textAlign='left';
+  let widths=items.map(it=>c.measureText(it[1]).width+62);
+  let x=(W-widths.reduce((a,b)=>a+b,0))/2;
+  items.forEach((it,i)=>{
+    c.fillStyle=it[0];pdfRR(c,x,y-20,26,26,6);c.fill();
+    c.strokeStyle='#cbd5e1';c.lineWidth=2;c.stroke();
+    c.fillStyle='#374151';c.fillText(it[1],x+38,y);
+    x+=widths[i];
+  });
+}
+function pdfStatBox(c,x,y,w,h,label,val,color){
+  c.fillStyle='#f8fafc';pdfRR(c,x,y,w,h,14);c.fill();
+  c.strokeStyle='#e2e8f0';c.lineWidth=2;c.stroke();
+  c.textAlign='center';
+  c.fillStyle=color;c.font='800 52px '+PDF_FONT;c.fillText(String(val),x+w/2,y+h/2+8);
+  c.fillStyle='#6b7280';c.font='600 22px '+PDF_FONT;c.fillText(label,x+w/2,y+h-20);
+}
+function drawMonthPage(cv,y,m){
+  const W=cv.width,H=cv.height,c=cv.getContext('2d');
+  c.fillStyle='#fff';c.fillRect(0,0,W,H);
+  const nameEl=document.querySelector('.topbar-title');
+  const name=nameEl?nameEl.textContent.trim():'';
+  c.textAlign='center';c.textBaseline='alphabetic';
+  c.fillStyle='#1a1a2e';c.font='800 58px '+PDF_FONT;c.fillText(MONTHS[m]+' '+y,W/2,112);
+  c.fillStyle='#6b7280';c.font='500 27px '+PDF_FONT;c.fillText((name?name+'  ·  ':'')+'Attendance Calendar',W/2,156);
+  const mx=60,cw=(W-2*mx)/7,ch=150,gap=6;
+  let top=200;
+  DAYS.forEach((dn,i)=>{
+    c.fillStyle=dn==='SUN'?'#ef4444':'#6b7280';c.font='700 24px '+PDF_FONT;c.textAlign='center';
+    c.fillText(dn,mx+i*cw+cw/2,top+30);
+  });
+  top+=48;
+  const dim=new Date(y,m+1,0).getDate(),first=new Date(y,m,1).getDay();
+  for(let d=1;d<=dim;d++){
+    const idx=first+d-1,col=idx%7,row=Math.floor(idx/7);
+    const x=mx+col*cw+gap/2,yy=top+row*ch+gap/2,w=cw-gap,h=ch-gap;
+    const st=pdfCellStyle(y,m,d),e=getEntry(y,m,d);
+    c.fillStyle=st.bg;pdfRR(c,x,yy,w,h,14);c.fill();
+    if(st.border){c.strokeStyle=st.border;c.lineWidth=3;c.stroke();}
+    c.fillStyle=st.fg;c.textAlign='left';c.font='800 42px '+PDF_FONT;c.fillText(String(d),x+16,yy+56);
+    let tag='';
+    if(e&&e.shift)tag+=(e.shift==='first'?'S1':e.shift==='second'?'S2':'S3');
+    if(e&&e.ot>0)tag+=(tag?'  ':'')+'+'+e.ot+'h';
+    if(tag){c.font='700 24px '+PDF_FONT;c.textAlign='right';c.fillText(tag,x+w-14,yy+h-16);}
+    if(e&&e.st==='halfday'){c.font='700 24px '+PDF_FONT;c.textAlign='left';c.fillText('½ day',x+16,yy+h-16);}
+  }
+  const rows=Math.ceil((first+dim)/7);
+  let y2=top+rows*ch+50;
+  pdfLegend(c,W,y2);
+  y2+=50;
+  const s=getMonthStats(y,m);
+  const bw=(W-2*mx-4*16)/5,bh=130;
+  [['Present',s.p,'#16a34a'],['Absent',s.a,'#dc2626'],['Half days',s.h,'#d97706'],['Co. Holidays',s.ch,'#2563eb'],['Overtime',s.ot+' h','#7c3aed']]
+    .forEach((b,i)=>pdfStatBox(c,mx+i*(bw+16),y2,bw,bh,b[0],b[1],b[2]));
+  y2+=bh+40;
+  c.textAlign='left';c.fillStyle='#1a1a2e';c.font='700 30px '+PDF_FONT;c.fillText('Attendance',mx,y2+10);
+  c.textAlign='right';c.fillStyle=pctColor(s.pct);c.font='800 40px '+PDF_FONT;c.fillText(s.pct.toFixed(2)+'%',W-mx,y2+12);
+  c.fillStyle='#e5e7eb';pdfRR(c,mx,y2+34,W-2*mx,22,11);c.fill();
+  c.fillStyle=pctColor(s.pct);pdfRR(c,mx,y2+34,Math.max(22,(W-2*mx)*Math.min(s.pct,100)/100),22,11);c.fill();
+  c.textAlign='center';c.fillStyle='#9ca3af';c.font='500 22px '+PDF_FONT;
+  c.fillText('Generated '+new Date().toLocaleDateString([],{day:'numeric',month:'long',year:'numeric'}),W/2,H-50);
+}
+function drawYearPage(cv,ys){
+  const W=cv.width,H=cv.height,c=cv.getContext('2d');
+  c.fillStyle='#fff';c.fillRect(0,0,W,H);
+  const nameEl=document.querySelector('.topbar-title');
+  const name=nameEl?nameEl.textContent.trim():'';
+  c.textAlign='center';c.textBaseline='alphabetic';
+  c.fillStyle='#1a1a2e';c.font='800 50px '+PDF_FONT;c.fillText(ys+' — Full Year Attendance',W/2,86);
+  c.fillStyle='#6b7280';c.font='500 25px '+PDF_FONT;c.fillText(name,W/2,124);
+  const mx=44,gx=26,colW=(W-2*mx-2*gx)/3,cell=colW/7,rowH=cell*0.8;
+  const blockH=34+26+6*rowH+14,gy=8;
+  for(let m=0;m<12;m++){
+    const bx=mx+(m%3)*(colW+gx),by=150+Math.floor(m/3)*(blockH+gy);
+    c.fillStyle='#1a1a2e';c.font='800 26px '+PDF_FONT;c.textAlign='center';
+    c.fillText(MONTHS[m].slice(0,3)+' '+ys,bx+colW/2,by+24);
+    DAYNAMES.forEach((dn,i)=>{
+      c.fillStyle=i===0?'#ef4444':'#6b7280';c.font='700 17px '+PDF_FONT;
+      c.fillText(dn,bx+i*cell+cell/2,by+50);
+    });
+    const dim=new Date(ys,m+1,0).getDate(),first=new Date(ys,m,1).getDay();
+    for(let d=1;d<=dim;d++){
+      const idx=first+d-1,col=idx%7,row=Math.floor(idx/7);
+      const x=bx+col*cell+1.5,yy=by+60+row*rowH+1.5,w=cell-3,h=rowH-3;
+      const st=pdfCellStyle(ys,m,d);
+      c.fillStyle=st.bg;pdfRR(c,x,yy,w,h,5);c.fill();
+      if(st.border){c.strokeStyle=st.border;c.lineWidth=1.5;c.stroke();}
+      c.fillStyle=st.fg;c.font='700 19px '+PDF_FONT;c.textAlign='center';
+      c.fillText(String(d),x+w/2,yy+h/2+7);
+    }
+  }
+  const legendY=150+4*(blockH+gy)+30;
+  pdfLegend(c,W,legendY);
+  const s=getYearStats(ys),bw=(W-2*mx-5*14)/6,bh=104,by=legendY+36;
+  [['Present',s.p,'#16a34a'],['Absent',s.a,'#dc2626'],['Half days',s.h,'#d97706'],['Co. Holidays',s.ch,'#2563eb'],['Overtime',s.ot+' h','#7c3aed'],['Attendance',s.pct.toFixed(1)+'%',pctColor(s.pct)]]
+    .forEach((b,i)=>pdfStatBox(c,mx+i*(bw+14),by,bw,bh,b[0],b[1],b[2]));
+  c.textAlign='center';c.fillStyle='#9ca3af';c.font='500 21px '+PDF_FONT;
+  c.fillText('Generated '+new Date().toLocaleDateString([],{day:'numeric',month:'long',year:'numeric'}),W/2,H-40);
+}
+function makePdfFromJpegs(pages,pw,ph){
+  const chunks=[];let len=0;const offs=[];
+  const push=u=>{chunks.push(u);len+=u.length;};
+  const put=str=>{const a=new Uint8Array(str.length);for(let i=0;i<str.length;i++)a[i]=str.charCodeAt(i)&255;push(a);};
+  put('%PDF-1.4\n');
+  const n=pages.length;
+  offs[1]=len;put('1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n');
+  offs[2]=len;put('2 0 obj\n<< /Type /Pages /Kids ['+pages.map((_,i)=>(3+3*i)+' 0 R').join(' ')+'] /Count '+n+' >>\nendobj\n');
+  pages.forEach((pg,i)=>{
+    const po=3+3*i,co=po+1,io=po+2;
+    offs[po]=len;put(po+' 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 '+pw+' '+ph+'] /Resources << /XObject << /Im0 '+io+' 0 R >> >> /Contents '+co+' 0 R >>\nendobj\n');
+    const cs='q '+pw+' 0 0 '+ph+' 0 0 cm /Im0 Do Q';
+    offs[co]=len;put(co+' 0 obj\n<< /Length '+cs.length+' >>\nstream\n'+cs+'\nendstream\nendobj\n');
+    offs[io]=len;put(io+' 0 obj\n<< /Type /XObject /Subtype /Image /Width '+pg.w+' /Height '+pg.h+' /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length '+pg.bytes.length+' >>\nstream\n');
+    push(pg.bytes);put('\nendstream\nendobj\n');
+  });
+  const total=2+3*n,xref=len;
+  let x='xref\n0 '+(total+1)+'\n0000000000 65535 f \n';
+  for(let i=1;i<=total;i++)x+=String(offs[i]).padStart(10,'0')+' 00000 n \n';
+  put(x+'trailer\n<< /Size '+(total+1)+' /Root 1 0 R >>\nstartxref\n'+xref+'\n%%EOF');
+  const out=new Uint8Array(len);let o=0;chunks.forEach(u=>{out.set(u,o);o+=u.length;});
+  return out;
+}
+function bytesToBase64(u){
+  let str='';const CH=0x8000;
+  for(let i=0;i<u.length;i+=CH)str+=String.fromCharCode.apply(null,u.subarray(i,i+CH));
+  return btoa(str);
+}
+function buildAttendancePdfBase64(kind){
+  const cv=document.createElement('canvas');cv.width=1240;cv.height=1754; // A4 @150 dpi
+  if(kind==='year'){
+    const ys=parseInt((document.getElementById('year-sel2')||{}).value)||curYear;
+    drawYearPage(cv,ys);
+  } else drawMonthPage(cv,curYear,curMonth);
+  const b64=cv.toDataURL('image/jpeg',0.93).split(',')[1];
+  const bin=atob(b64),jpg=new Uint8Array(bin.length);
+  for(let i=0;i<bin.length;i++)jpg[i]=bin.charCodeAt(i);
+  return bytesToBase64(makePdfFromJpegs([{w:cv.width,h:cv.height,bytes:jpg}],595.28,841.89));
+}
+async function exportPdfNative(kind){
+  const ok=(()=>{try{return Capacitor.isPluginAvailable('Filesystem')&&Capacitor.isPluginAvailable('Share');}catch(e){return false;}})();
+  if(!ok){alert('PDF export needs the updated app build (run native-setup.sh in the GitHub workflow — see README).');return;}
+  try{
+    showGeoToast('📄 Preparing PDF…');
+    const ys=parseInt((document.getElementById('year-sel2')||{}).value)||curYear;
+    const fname=kind==='year'?`Attendance_${ys}_Year.pdf`:`Attendance_${MONTHS[curMonth]}_${curYear}.pdf`;
+    const data=buildAttendancePdfBase64(kind);
+    const w=await nativePlugin('Filesystem').writeFile({path:fname,data:data,directory:'CACHE'});
+    await nativePlugin('Share').share({title:fname,dialogTitle:'Save or print PDF',url:w.uri});
+  }catch(e){
+    if(e&&/cancel/i.test(String(e.message||e)))return;
+    alert('Could not create the PDF: '+(e&&e.message||e));
+  }
+}
+
+function printPDF(){
+  if(IS_NATIVE){setView('month');exportPdfNative('month');return;}
+  setView('month');
+  const hdr=document.getElementById('print-month-header');
+  if(hdr)hdr.textContent=`${MONTHS[curMonth]} ${curYear}`;
+  setTimeout(()=>{window.print();},200);
+}
+function printYearPDF(){
+  if(IS_NATIVE){exportPdfNative('year');return;}
+  const ys=parseInt(document.getElementById('year-sel2').value)||curYear;
+  // Force render all 12 months
+  renderYearly();
+  const hdr=document.getElementById('print-year-header');
+  if(hdr){hdr.textContent=`${ys} — Full Year Attendance Calendar`;hdr.style.display='block';}
+  document.body.classList.add('print-year');
+  // Give DOM time to render all months
+  setTimeout(()=>{
+    window.print();
+    setTimeout(()=>{
+      document.body.classList.remove('print-year');
+      if(hdr)hdr.style.display='none';
+    },500);
+  },400);
+}
+
+
+// ===== GEO-FENCING (Live Auto-Track — works OFFLINE via satellite GPS) =====
+let GEO_OFFICE = null;
+let GEO_LAST_DIST = null;
+let GEO_INSIDE = false;
+let GEO_WATCH_ID = null;           // watchPosition handle
+let GEO_POLL_ID = null;            // offline GPS polling interval
+let GEO_AUTO_ON = false;
+let GEO_MARKED_TODAY = false;
+let GEO_MARKED_DATE = null;
+let GEO_LAST_FIX = null;           // last known GPS position (for offline use)
+
+// ===== NATIVE ANDROID APP (Capacitor) — true background tracking =====
+// Inside the installed APK a foreground service keeps delivering GPS fixes even when
+// the app is closed to the background / screen is off. Outside the APK (normal browser)
+// everything falls back to the regular web behaviour above.
+var IS_NATIVE=!!(window.Capacitor&&Capacitor.isNativePlatform&&Capacitor.isNativePlatform());
+var NATIVE_WATCH_ID=null;
+function nativePlugin(name){
+  try{return (Capacitor.Plugins&&Capacitor.Plugins[name])||Capacitor.registerPlugin(name);}catch(e){return null;}
+}
+async function startNativeWatch(){
+  if(!IS_NATIVE||NATIVE_WATCH_ID!==null)return;
+  const BG=nativePlugin('BackgroundGeolocation');
+  if(!BG){setGeoStatus('idle','⚠️ Background plugin missing');return;}
+  try{
+    NATIVE_WATCH_ID=await BG.addWatcher({
+      backgroundTitle:'Attendance auto check-in',
+      backgroundMessage:'Watching for arrival at office',
+      requestPermissions:true,
+      stale:false,
+      distanceFilter:20
+    },(loc,err)=>{
+      if(err){
+        if(err.code==='NOT_AUTHORIZED'){
+          setGeoStatus('idle','⚠️ Location permission needed');
+          if(confirm('Location permission is needed for auto check-in. Open settings?'))BG.openSettings();
+        }
+        return;
+      }
+      if(loc)geoHandlePosition({coords:{latitude:loc.latitude,longitude:loc.longitude,accuracy:loc.accuracy}});
+    });
+    setGeoStatus('checking','🛰️ Background tracking active');
+  }catch(e){setGeoStatus('idle','⚠️ Could not start tracking: '+(e&&e.message||e));}
+}
+function stopNativeWatch(){
+  if(NATIVE_WATCH_ID===null)return;
+  const BG=nativePlugin('BackgroundGeolocation');
+  try{BG.removeWatcher({id:NATIVE_WATCH_ID});}catch(e){}
+  NATIVE_WATCH_ID=null;
+}
+async function nativeNotify(title,body){
+  const LN=nativePlugin('LocalNotifications');
+  if(!LN)return;
+  try{
+    let p=await LN.checkPermissions();
+    if(p.display!=='granted')p=await LN.requestPermissions();
+    if(p.display!=='granted')return;
+    await LN.schedule({notifications:[{id:Date.now()%2000000000,title:title,body:body}]});
+  }catch(e){}
+}
+// ===== NATIVE GEOFENCE (works even when the app is closed) =====
+// Needs the "AttendanceGeofence" plugin added by native-setup.sh. Android itself watches the
+// office circle (Google Play services) and, on arrival, a receiver stores the arrival time
+// + shows a notification — no foreground service, no always-on notification.
+// The calendar picks the arrival up the next time the app opens (applyNativePending).
+function hasNativeGeofence(){
+  try{return !!(IS_NATIVE&&Capacitor.isPluginAvailable&&Capacitor.isPluginAvailable('AttendanceGeofence'));}catch(e){return false;}
+}
+async function startNativeGeofence(interactive){
+  if(!hasNativeGeofence()||!GEO_OFFICE)return false;
+  const NG=nativePlugin('AttendanceGeofence');
+  try{
+    await NG.start({lat:GEO_OFFICE.lat,lon:GEO_OFFICE.lon,radius:Math.max(100,getGeoRadius())});
+    const st=await NG.status();
+    if(!st.background){
+      setGeoStatus('nooffice','⚠️ Set Location to "Allow all the time" so check-in works when the app is closed');
+      if(interactive&&confirm('For auto check-in while the app is closed:\n\nSettings → Permissions → Location → "Allow all the time".\n\nOpen app settings now?'))NG.openAppSettings();
+    } else {
+      setGeoStatus('checking','🛰️ Auto check-in armed — works even when the app is closed');
+      if(interactive&&!st.battery&&confirm('Some phones stop background apps to save battery.\n\nAllow this app to run without battery restriction?'))NG.openBatterySettings();
+    }
+    return true;
+  }catch(e){
+    setGeoStatus('idle','⚠️ Could not start auto check-in: '+(e&&e.message||e));
+    return false;
+  }
+}
+async function stopNativeGeofence(){
+  if(!hasNativeGeofence())return;
+  try{await nativePlugin('AttendanceGeofence').stop();}catch(e){}
+}
+async function applyNativePending(){
+  if(!hasNativeGeofence())return;
+  try{
+    const NG=nativePlugin('AttendanceGeofence');
+    const r=await NG.getPending();
+    const items=(r&&r.items)||[];
+    if(!items.length)return;
+    const n=new Date();
+    const todayStr=n.getFullYear()+'-'+(n.getMonth()+1)+'-'+n.getDate();
+    let marked=0;
+    items.forEach(it=>{
+      const p=String(it.date).split('-').map(Number);
+      const t=String(it.time).split(':').map(Number);
+      if(p.length<3||t.length<2||p.some(isNaN)||t.some(isNaN))return;
+      const dt=new Date(p[0],p[1]-1,p[2],t[0],t[1]);
+      const timeStr=dt.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+      const ds=p[0]+'-'+p[1]+'-'+p[2];
+      if(recordArrival(String(it.date),timeStr,true)==='marked')marked++;
+      if(ds===todayStr){saveGeoMarkedDate(ds);GEO_MARKED_DATE=ds;GEO_MARKED_TODAY=true;}
+    });
+    await NG.clearPending();
+    if(marked)showGeoToast('✅ Auto check-in recorded while the app was closed');
+    updateGeoOfficeInfo();
+  }catch(e){}
+}
+
+function backupData(){
+  const payload=JSON.stringify({v:1,data:DATA,office:GEO_OFFICE,radius:getGeoRadius()});
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(payload).then(()=>showGeoToast('📋 Backup copied — paste it somewhere safe'),()=>prompt('Copy this backup:',payload));
+  } else {prompt('Copy this backup:',payload);}
+}
+function restoreData(){
+  const txt=prompt('Paste your backup here:');
+  if(!txt)return;
+  try{
+    const o=JSON.parse(txt);
+    if(!o||typeof o.data!=='object'||o.data===null)throw new Error('bad');
+    if(!confirm('Replace the data on this device with the backup?'))return;
+    DATA=o.data;saveData();
+    if(o.office&&typeof o.office.lat==='number'&&typeof o.office.lon==='number'){GEO_OFFICE=o.office;saveGeoOffice(GEO_OFFICE);}
+    if(o.radius){const r=document.getElementById('geo-radius');if(r)r.value=o.radius;}
+    updateGeoOfficeInfo();renderMonth();showGeoToast('✅ Backup restored');
+  }catch(e){alert('That does not look like a valid backup.');}
+}
+// GPS works entirely via satellite — no internet needed.
+// A-GPS (network-assisted) only speeds up first fix; once the phone has a fix
+// it stays accurate offline. We keep maximumAge generous so cached fixes work.
+
+function loadGeoOffice(){
+  try{const s=localStorage.getItem('att_geo_office_pk2');return s?JSON.parse(s):null;}catch(e){return null;}
+}
+function saveGeoOffice(loc){
+  try{localStorage.setItem('att_geo_office_pk2',JSON.stringify(loc));}catch(e){}
+}
+function loadGeoAuto(){
+  try{return localStorage.getItem('att_geo_auto_pk2')==='1';}catch(e){return false;}
+}
+function saveGeoAuto(v){
+  try{localStorage.setItem('att_geo_auto_pk2',v?'1':'0');}catch(e){}
+}
+function loadGeoMarkedDate(){
+  try{return localStorage.getItem('att_geo_marked_date')||null;}catch(e){return null;}
+}
+function saveGeoMarkedDate(d){
+  try{localStorage.setItem('att_geo_marked_date',d);}catch(e){}
+}
+function getGeoRadius(){
+  return parseInt(document.getElementById('geo-radius').value)||150;
+}
+function haversineM(lat1,lon1,lat2,lon2){
+  const R=6371000;
+  const dLat=(lat2-lat1)*Math.PI/180;
+  const dLon=(lon2-lon1)*Math.PI/180;
+  const a=Math.sin(dLat/2)*Math.sin(dLat/2)+
+    Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*
+    Math.sin(dLon/2)*Math.sin(dLon/2);
+  return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+}
+function setGeoStatus(state,text){
+  const s=document.getElementById('geo-status');
+  const d=document.getElementById('geo-dot');
+  const t=document.getElementById('geo-status-text');
+  if(s)s.className='geo-status '+state;
+  if(d)d.className='geo-dot '+state;
+  if(t)t.textContent=text;
+}
+function updateNetBadge(){
+  const badge=document.getElementById('geo-net-badge');
+  if(!badge)return;
+  const online=navigator.onLine;
+  if(online){
+    badge.textContent=GEO_AUTO_ON&&GEO_OFFICE?'🌐 Online — GPS + network active':'🌐 Online';
+    badge.style.color='#15803d';
+    badge.style.background='#f0fdf4';
+    badge.style.border='1px solid #bbf7d0';
+  } else {
+    badge.textContent=GEO_AUTO_ON&&GEO_OFFICE?'📡 Offline — satellite GPS active ✅':'📡 Offline — GPS ready (satellite)';
+    badge.style.color='#d97706';
+    badge.style.background='#fffbeb';
+    badge.style.border='1px solid #fcd34d';
+  }
+}
+function updateGeoOfficeInfo(){
+  const el=document.getElementById('geo-office-info');
+  if(!el)return;
+  if(!GEO_OFFICE){
+    el.textContent='No office location saved. Go to office and tap "Set Office".';
+  } else {
+    el.textContent=`📍 Office saved · Radius: ${getGeoRadius()}m · Auto-track: ${GEO_AUTO_ON?'ON 🟢':'OFF ⚫'}`;
+  }
+  updateNetBadge();
+}
+function updateAutoBtn(){
+  const btn=document.getElementById('geo-auto-btn');
+  if(!btn)return;
+  if(GEO_AUTO_ON){
+    btn.innerHTML='<span class="geo-icon">🛰️</span>Auto: ON';
+    btn.className='geo-btn green';
+  } else {
+    btn.innerHTML='<span class="geo-icon">🛰️</span>Auto: OFF';
+    btn.className='geo-btn';
+  }
+}
+
+// ---- Record an office arrival in the calendar (shared by live GPS + native geofence) ----
+// returns 'marked' (new Present), 'holiday' (holiday/event day) or 'existing' (already had an entry)
+function recordArrival(dateKey,timeStr,fromNative){
+  const existing=DATA[dateKey];
+  const st=existing&&typeof existing==='object'?existing.st:(existing||null);
+  let res;
+  if(!st){
+    DATA[dateKey]={st:'present',ot:0,shift:null,note:'',geoTime:timeStr};
+    res='marked';
+  } else if(st==='co-holiday'||st==='holiday'){
+    DATA[dateKey]=Object.assign({},existing,{geoTime:timeStr});
+    res='holiday';
+  } else {
+    const obj=typeof existing==='object'?existing:{st:st,ot:0,shift:null};
+    // keep a manual entry untouched except for the geo time; a native (true arrival) time replaces a later one
+    if(!isGeoAutoEntry(obj)||fromNative)DATA[dateKey]=Object.assign({},obj,{geoTime:timeStr});
+    res='existing';
+  }
+  saveData();renderMonth();
+  if(curView==='detail')renderDetail();
+  if(curView==='year')renderYearly();
+  return res;
+}
+
+// ---- Core position handler (called by both watchPosition and polling) ----
+function geoHandlePosition(pos){
+  if(!GEO_OFFICE)return;
+  GEO_LAST_FIX=pos; // cache for offline resilience
+
+  const dist=haversineM(pos.coords.latitude,pos.coords.longitude,GEO_OFFICE.lat,GEO_OFFICE.lon);
+  GEO_LAST_DIST=dist;
+  const radius=getGeoRadius();
+  const wasInside=GEO_INSIDE;
+  GEO_INSIDE=dist<=radius;
+
+  const distTxt=dist<1000?Math.round(dist)+'m':(dist/1000).toFixed(2)+'km';
+  const offlineTxt=navigator.onLine?'':' · 📡 GPS offline';
+  const db=document.getElementById('geo-dist-badge');
+  if(db)db.textContent=`📏 ${distTxt} from office · Radius: ${radius}m${offlineTxt}`;
+
+  // New day — reset daily mark flag
+  const now=new Date();
+  const nowStr=now.getFullYear()+'-'+(now.getMonth()+1)+'-'+now.getDate();
+  if(GEO_MARKED_DATE!==nowStr){
+    GEO_MARKED_TODAY=false;
+    GEO_MARKED_DATE=nowStr;
+    GEO_INSIDE=false; // treat as fresh entry for new day
+  }
+
+  if(GEO_INSIDE){
+    if(!wasInside && !GEO_MARKED_TODAY){
+      GEO_MARKED_TODAY=true;
+      saveGeoMarkedDate(nowStr);
+
+      const nowKey=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+String(now.getDate()).padStart(2,'0');
+      const timeStr=now.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+      const offlineLabel=navigator.onLine?'':' (offline GPS)';
+      const res=recordArrival(nowKey,timeStr,false);
+      if(res==='marked'){
+        setGeoStatus('inside',`✅ Checked in${offlineLabel} at ${timeStr} — Marked Present`);
+        showGeoToast(`✅ Marked Present${offlineLabel} — ${timeStr}`);
+        // System notification only when a NEW attendance was really marked (and never while the app is open)
+        showNativeNotification('📅 Attendance Marked',`Checked in${offlineLabel} as Present at ${timeStr}.`);
+      } else if(res==='holiday'){
+        const hl=(DATA[nowKey]&&DATA[nowKey].st==='co-holiday')?'Company Holiday':'Special Event';
+        setGeoStatus('inside',`✅ Arrived${offlineLabel} at ${timeStr} — ${hl} recorded`);
+        showGeoToast(`📍 ${hl} — Geo arrival${offlineLabel} logged at ${timeStr}`);
+      } else {
+        setGeoStatus('inside',`✅ Arrived${offlineLabel} at ${timeStr} — attendance already marked`);
+        showGeoToast(`📍 Arrived${offlineLabel} at ${timeStr} — geo time logged`);
+      }
+    } else if(wasInside){
+      setGeoStatus('inside',`✅ Inside office zone — ${distTxt}${offlineTxt}`);
+    } else {
+      setGeoStatus('inside',`✅ Inside office — attendance already recorded today`);
+    }
+  } else {
+    setGeoStatus('outside',`❌ Outside office zone — ${distTxt}${offlineTxt}`);
+  }
+  updateGeoOfficeInfo();
+}
+
+function geoWatchError(err){
+  // POSITION_UNAVAILABLE (code 2) or TIMEOUT (code 3) — GPS not ready yet.
+  // Don't stop polling; just show a softer message and retry via the poll loop.
+  if(err.code===2||err.code===3){
+    setGeoStatus('checking',`📡 Acquiring GPS${navigator.onLine?'':' (offline satellite)'}… retrying`);
+  } else {
+    setGeoStatus('idle','⚠️ Location error: '+err.message);
+  }
+}
+
+// ---- watchPosition: fires continuously when GPS updates ----
+function startGeoWatch(interactive){
+  if(IS_NATIVE){
+    if(hasNativeGeofence()){startNativeGeofence(interactive===true);return;}
+    startNativeWatch();return; // old builds without the geofence plugin
+  }
+  if(!navigator.geolocation){alert('Geolocation not supported.');return;}
+  if(GEO_WATCH_ID!==null){navigator.geolocation.clearWatch(GEO_WATCH_ID);GEO_WATCH_ID=null;}
+  setGeoStatus('checking',`📡 Starting GPS tracking${navigator.onLine?'':' (offline mode)'}…`);
+  // maximumAge:60000 — accept a 60-second-old cached fix so offline works immediately
+  // timeout:20000  — give satellite GPS time to get a fix without network assist
+  GEO_WATCH_ID=navigator.geolocation.watchPosition(
+    geoHandlePosition,
+    geoWatchError,
+    {enableHighAccuracy:true, timeout:20000, maximumAge:60000}
+  );
+}
+
+// ---- Offline GPS poll: fires getCurrentPosition every 30 s as a safety net ----
+// Even when watchPosition stalls (e.g. app backgrounded or A-GPS unavailable),
+// getCurrentPosition can still get a satellite fix.
+function startGeoOfflinePoll(){
+  stopGeoOfflinePoll();
+  if(IS_NATIVE)return; // foreground service handles it
+  // Poll every 15s offline (satellite fix is slower without A-GPS assistance),
+  // every 30s online (watchPosition handles it well with network assist).
+  const interval = navigator.onLine ? 30000 : 15000;
+  GEO_POLL_ID=setInterval(()=>{
+    if(!GEO_AUTO_ON||!GEO_OFFICE)return;
+    if(GEO_MARKED_TODAY){stopGeoOfflinePoll();return;} // stop polling once marked
+    const maxAge = navigator.onLine ? 120000 : 60000; // fresher fix offline
+    navigator.geolocation.getCurrentPosition(
+      geoHandlePosition,
+      err=>{/* silent — watchPosition handles errors */},
+      {enableHighAccuracy:true, timeout:25000, maximumAge:maxAge}
+    );
+  }, interval);
+}
+function stopGeoOfflinePoll(){
+  if(GEO_POLL_ID!==null){clearInterval(GEO_POLL_ID);GEO_POLL_ID=null;}
+}
+
+function stopGeoWatch(){
+  stopNativeWatch();
+  stopNativeGeofence();
+  if(GEO_WATCH_ID!==null){navigator.geolocation.clearWatch(GEO_WATCH_ID);GEO_WATCH_ID=null;}
+  stopGeoOfflinePoll();
+  setGeoStatus('idle','⏸️ Auto-tracking paused');
+  const db=document.getElementById('geo-dist-badge');
+  if(db)db.textContent='';
+}
+
+function toggleGeoAuto(){
+  if(!GEO_OFFICE){
+    setGeoStatus('nooffice','⚠️ Set office location first!');
+    return;
+  }
+  GEO_AUTO_ON=!GEO_AUTO_ON;
+  saveGeoAuto(GEO_AUTO_ON);
+  updateAutoBtn();
+  updateGeoOfficeInfo();
+  updateNetBadge();
+  if(GEO_AUTO_ON){
+    requestNotificationPermission();
+    startGeoWatch(true);
+    startGeoOfflinePoll();
+    if(hasNativeGeofence()){
+      // Android reports "already inside the office" by itself; pick the result up shortly
+      [6000,20000,45000,90000].forEach(ms=>setTimeout(applyNativePending,ms));
+    } else {
+      // Immediate one-shot GPS check — works offline via satellite
+      navigator.geolocation.getCurrentPosition(
+        geoHandlePosition,
+        geoWatchError,
+        {enableHighAccuracy:true, timeout:25000, maximumAge:60000}
+      );
+    }
+  } else {
+    stopGeoWatch();
+  }
+}
+
+function geoSetOffice(){
+  if(!navigator.geolocation){alert('Geolocation not supported by your browser.');return;}
+  setGeoStatus('checking','Getting your location…');
+  navigator.geolocation.getCurrentPosition(
+    pos=>{
+      GEO_OFFICE={lat:pos.coords.latitude,lon:pos.coords.longitude};
+      saveGeoOffice(GEO_OFFICE);
+      setGeoStatus('inside','✅ Office location saved!');
+      updateGeoOfficeInfo();
+      document.getElementById('geo-dist-badge').textContent='Office set at your current position.';
+      if(GEO_AUTO_ON){startGeoWatch(false);startGeoOfflinePoll();}
+    },
+    err=>{
+      setGeoStatus('idle','Location access denied or unavailable.');
+      alert('Could not get location: '+err.message);
+    },
+    {enableHighAccuracy:true,timeout:15000,maximumAge:30000}
+  );
+}
+
+function geoCheckIn(){
+  if(!navigator.geolocation){alert('Geolocation not supported by your browser.');return;}
+  if(!GEO_OFFICE){setGeoStatus('nooffice','⚠️ No office saved. Tap "Set Office" first.');return;}
+  setGeoStatus('checking',`📡 Checking location${navigator.onLine?'':' (GPS offline mode)'}…`);
+  document.getElementById('geo-dist-badge').textContent='';
+  // Works offline — GPS is satellite-based, no internet needed
+  navigator.geolocation.getCurrentPosition(
+    geoHandlePosition,
+    geoWatchError,
+    {enableHighAccuracy:true, timeout:25000, maximumAge:60000}
+  );
+}
+
+function geoMarkPresent(){
+  const now=new Date();
+  const nowKey=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+String(now.getDate()).padStart(2,'0');
+  DATA[nowKey]=Object.assign({},DATA[nowKey]||{},{st:'present',ot:(DATA[nowKey]&&DATA[nowKey].ot)||0,shift:(DATA[nowKey]&&DATA[nowKey].shift)||null,note:(DATA[nowKey]&&DATA[nowKey].note)||''});
+  saveData();renderMonth();if(curView==='detail')renderDetail();
+  setGeoStatus('inside','✅ Marked Present for today');
+}
+function geoMarkAbsent(){
+  const now=new Date();
+  const nowKey=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+String(now.getDate()).padStart(2,'0');
+  DATA[nowKey]=Object.assign({},DATA[nowKey]||{},{st:'absent',ot:0,shift:(DATA[nowKey]&&DATA[nowKey].shift)||null,note:(DATA[nowKey]&&DATA[nowKey].note)||''});
+  saveData();renderMonth();if(curView==='detail')renderDetail();
+  setGeoStatus('outside','❌ Marked Absent for today');
+}
+function showGeoToast(msg){
+  let t=document.getElementById('geo-toast');
+  if(!t){
+    t=document.createElement('div');
+    t.id='geo-toast';
+    t.style.cssText='position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:#1a1a2e;color:#fff;padding:10px 18px;border-radius:10px;font-size:13px;font-weight:600;z-index:200;box-shadow:0 4px 20px rgba(0,0,0,0.3);transition:opacity 0.4s';
+    document.body.appendChild(t);
+  }
+  t.textContent=msg;
+  t.style.opacity='1';
+  clearTimeout(t._timer);
+  t._timer=setTimeout(()=>t.style.opacity='0',3000);
+}
+// ---- Connectivity change — geo check fires in BOTH online and offline states ----
+window.addEventListener('online', ()=>{
+  updateNetBadge();
+  if(GEO_AUTO_ON && GEO_OFFICE && !GEO_MARKED_TODAY){
+    showGeoToast('🌐 Back online — checking location…');
+    setGeoStatus('checking','🌐 Back online — verifying GPS…');
+    // Restart watchPosition (may have stalled while offline) + instant one-shot
+    startGeoWatch();
+    setTimeout(()=>{
+      navigator.geolocation.getCurrentPosition(
+        geoHandlePosition, geoWatchError,
+        {enableHighAccuracy:true, timeout:20000, maximumAge:30000}
+      );
+    }, 800);
+  }
+});
+window.addEventListener('offline', ()=>{
+  updateNetBadge();
+  if(GEO_AUTO_ON && GEO_OFFICE && !GEO_MARKED_TODAY){
+    showGeoToast('📡 Offline — GPS satellite tracking active');
+    setGeoStatus('checking','📡 Offline — satellite GPS tracking…');
+    // Ensure poll loop is running; watchPosition keeps firing via satellite
+    startGeoOfflinePoll();
+    navigator.geolocation.getCurrentPosition(
+      geoHandlePosition, geoWatchError,
+      {enableHighAccuracy:true, timeout:25000, maximumAge:60000}
+    );
+  }
+});
+// ===== NOTIFICATIONS =====
+function requestNotificationPermission(){
+  if(IS_NATIVE){const LN=nativePlugin('LocalNotifications');if(LN)LN.requestPermissions().catch(()=>{});return;}
+  if('Notification' in window && Notification.permission==='default'){
+    Notification.requestPermission();
+  }
+}
+function showNativeNotification(title, body){
+  // The app is on screen — the in-app toast is enough. A system notification while you are
+  // looking at the app is what caused the "notification every time I open the app" problem.
+  if(document.visibilityState==='visible')return;
+  if(IS_NATIVE){nativeNotify(title,body);return;}
+  if(!('Notification' in window))return;
+  if(Notification.permission==='granted'){
+    try{
+      new Notification(title,{
+        body:body,
+        icon:'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="12" fill="%238b5cf6"/><text x="32" y="44" text-anchor="middle" font-size="36" fill="white">📅</text></svg>',
+        badge:'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="12" fill="%238b5cf6"/><text x="32" y="44" text-anchor="middle" font-size="36" fill="white">✅</text></svg>',
+        tag:'attendance-checkin',
+        requireInteraction:false,
+        vibrate:[200,100,200]
+      });
+    }catch(e){console.log('Notification error:',e);}
+  } else if(Notification.permission==='default'){
+    Notification.requestPermission().then(p=>{
+      if(p==='granted')showNativeNotification(title,body);
+    });
+  }
+}
+
+// ===== HANDS-FREE TRIGGER (?checkin=1) + RESUME CHECK =====
+// A web page cannot run GPS while it is closed/backgrounded (browser limitation).
+// So a phone automation (iOS Shortcuts "Arrive", Android MacroDroid/Tasker geofence)
+// opens this page with ?checkin=1 when you reach the office; it marks attendance in seconds.
+function geoTriggerCheckIn(attempt){
+  attempt=attempt||1;
+  if(!navigator.geolocation)return;
+  if(!GEO_OFFICE){setGeoStatus('nooffice','⚠️ No office saved. Tap "Set Office" first.');return;}
+  setGeoStatus('checking','📡 Auto check-in… (try '+attempt+'/4)');
+  navigator.geolocation.getCurrentPosition(
+    pos=>{
+      geoHandlePosition(pos);
+      try{history.replaceState(null,'',location.pathname);}catch(e){}
+    },
+    err=>{
+      if(attempt<4)setTimeout(()=>geoTriggerCheckIn(attempt+1),4000);
+      else geoWatchError(err);
+    },
+    {enableHighAccuracy:true,timeout:20000,maximumAge:0}
+  );
+}
+function copyCheckinLink(){
+  const url=location.origin+location.pathname+'?checkin=1';
+  if(location.protocol==='file:'){
+    alert('This file is opened locally, so the link will not work from automations.\nHost it (e.g. GitHub Pages / Netlify) and use that address + ?checkin=1');
+    return;
+  }
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(url).then(()=>showGeoToast('🔗 Link copied'),()=>prompt('Copy this link:',url));
+  } else {prompt('Copy this link:',url);}
+}
+document.addEventListener('visibilitychange',()=>{
+  if(document.visibilityState==='visible')applyNativePending();
+  if(document.visibilityState==='visible'&&GEO_AUTO_ON&&GEO_OFFICE&&!GEO_MARKED_TODAY){
+    startGeoWatch();
+    startGeoOfflinePoll();
+    geoTriggerCheckIn(1);
+  }
+});
+
+// Init geo on load
+if(IS_NATIVE){const _b=document.getElementById('copy-link-btn');if(_b)_b.parentElement.style.display='none';}
+GEO_OFFICE=loadGeoOffice();
+GEO_AUTO_ON=loadGeoAuto();
+GEO_MARKED_DATE=loadGeoMarkedDate();
+const _now=new Date();
+const _todayStr=_now.getFullYear()+'-'+(_now.getMonth()+1)+'-'+_now.getDate();
+if(GEO_MARKED_DATE===_todayStr){GEO_MARKED_TODAY=true;}
+updateGeoOfficeInfo();
+updateNetBadge();
+// Resume auto-tracking (works offline — GPS is satellite-based)
+setTimeout(async()=>{
+  updateAutoBtn();
+  await applyNativePending(); // arrivals recorded by Android while the app was closed
+  if(GEO_AUTO_ON&&GEO_OFFICE){
+    startGeoWatch(false);  // continuous satellite GPS watch (or native geofence in the APK)
+    startGeoOfflinePoll(); // 30-second poll safety net for offline/background
+    // Immediate one-shot check on open — no internet needed
+    navigator.geolocation.getCurrentPosition(
+      geoHandlePosition,
+      geoWatchError,
+      {enableHighAccuracy:true,timeout:25000,maximumAge:60000}
+    );
+  }
+},300);
+
+
+// Launched by automation link? Check in right away.
+if(new URLSearchParams(location.search).has('checkin')||location.hash==='#checkin'){
+  setTimeout(()=>geoTriggerCheckIn(1),600);
+}
+
+buildSelectors();
+updateLockUI();
+renderMonth();
+</script>
+</body>
+</html>
