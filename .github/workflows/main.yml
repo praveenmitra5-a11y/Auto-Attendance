@@ -1,0 +1,50 @@
+name: Build Attendance APK
+
+on:
+  workflow_dispatch:
+
+env:
+  APP_NAME: "Attendance"
+  # Different from your old APK so both can be installed side by side
+  APP_ID: "com.praveen.attendance2"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Copy web files
+        run: |
+          mkdir -p www
+          rsync -a --exclude='.git' --exclude='.github' --exclude='www' --exclude='README.md' --exclude='native-setup.sh' ./ www/
+
+      - name: Create Android project
+        run: |
+          npm init -y
+          npm install --no-audit --no-fund @capacitor/core@6 @capacitor/cli@6 @capacitor/android@6
+          npx cap init "$APP_NAME" "$APP_ID" --web-dir www
+          npx cap add android
+
+      - name: Add native geofence + PDF support
+        run: bash native-setup.sh
+
+      - name: Build debug APK
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: attendance-debug-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
